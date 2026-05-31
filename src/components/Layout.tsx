@@ -63,7 +63,7 @@ export function Layout() {
             borderColor: accent + '22',
             background: 'rgba(0,0,0,0.35)',
             backdropFilter: 'blur(16px)',
-            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+            paddingTop: 'env(safe-area-inset-top, 8px)',
           }}
         >
           <div className="flex items-center gap-2 sm:gap-3">
