@@ -201,12 +201,12 @@ export class GameCanvas {
       this.redraw();
     });
 
-    // Piece textures — reuse avatar images
-    this.loadTransparent(texURL(`/avatars/${themeId}-white.png`), (img) => {
+    // Piece textures
+    this.loadTransparent(texURL(`/textures/${themeId}-piece-white.png`), (img) => {
       this.pieceTexWhite = Texture.from(img);
       this.redraw();
     });
-    this.loadTransparent(texURL(`/avatars/${themeId}-black.png`), (img) => {
+    this.loadTransparent(texURL(`/textures/${themeId}-piece-black.png`), (img) => {
       this.pieceTexBlack = Texture.from(img);
       this.redraw();
     });
