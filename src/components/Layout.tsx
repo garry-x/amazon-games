@@ -8,6 +8,7 @@ import { MoveHistory } from './MoveHistory';
 import { ThemePicker } from './ThemePicker';
 import { ResultDialog } from './ResultDialog';
 import { Tutorial } from './Tutorial';
+import { PlayerPanel } from './PlayerPanel';
 import { useState, useMemo } from 'react';
 import type { BoardSize, VariantConfig } from '../game/types';
 
@@ -104,6 +105,7 @@ export function Layout() {
             <div className="flex-1 relative">
               <GameBoard />
               <div className="absolute top-4 left-4 z-10"><GameHUD /></div>
+              <PlayerPanel />
             </div>
             <AnimatePresence>
               {showHistory && (
