@@ -237,12 +237,12 @@ export class GameCanvas {
       this.redraw();
     });
 
-    // Piece textures (with transparency extraction)
-    this.loadTransparent(`/textures/${themeId}-piece-white.png`, (img) => {
+    // Piece textures — reuse avatar images
+    this.loadTransparent(texURL(`/avatars/${themeId}-white.png`), (img) => {
       this.pieceTexWhite = Texture.from(img);
       this.redraw();
     });
-    this.loadTransparent(`/textures/${themeId}-piece-black.png`, (img) => {
+    this.loadTransparent(texURL(`/avatars/${themeId}-black.png`), (img) => {
       this.pieceTexBlack = Texture.from(img);
       this.redraw();
     });
