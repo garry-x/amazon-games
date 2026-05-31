@@ -7,6 +7,8 @@ import { useMemo } from 'react';
 export function GameHUD() {
   const gameState = useGameStore(s => s.gameState);
   const variant = useGameStore(s => s.variant);
+  const aiThinking = useGameStore(s => s.aiThinking);
+  const aiConfig = useGameStore(s => s.aiConfig);
   const forfeit = useGameStore(s => s.forfeit);
   const theme = useUIStore(s => s.theme);
   const [collapsed, setCollapsed] = useState(false);
@@ -93,6 +95,20 @@ export function GameHUD() {
               </div>
             )}
           </div>
+
+          {/* AI thinking indicator */}
+          <AnimatePresence>
+            {aiThinking && (
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="flex items-center gap-2 mb-2 py-1.5 px-3 rounded-lg text-xs font-medium"
+                style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}33` }}>
+                <span className="inline-block w-3 h-3 rounded-full border-2 border-t-transparent animate-spin"
+                  style={{ borderColor: `${accent}44`, borderTopColor: accent }} />
+                AI 思考中...
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Shoot alert */}
           <AnimatePresence>

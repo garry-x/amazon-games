@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useUIStore, ALL_THEMES } from '../store/ui-store';
-import { ALL_VARIANTS } from '../store/game-store';
+import { ALL_VARIANTS, useGameStore, type AIConfig } from '../store/game-store';
+import type { AIDifficulty } from '../ai/engine';
 import { Tutorial } from './Tutorial';
 import type { BoardSize, VariantConfig } from '../game/types';
 
@@ -15,15 +16,22 @@ const BOARD_SIZES: { size: BoardSize; label: string; desc: string }[] = [
   { size: 14, label: '14×14', desc: '史诗对决' },
 ];
 
+const AI_LEVELS: { value: AIDifficulty; label: string; desc: string }[] = [
+  { value: 'easy', label: '初级', desc: '休闲对弈' },
+  { value: 'medium', label: '中级', desc: '均衡挑战' },
+  { value: 'hard', label: '高级', desc: '深思熟虑' },
+];
+
 export function GameSetup({ onStart }: Props) {
   const { theme, setTheme } = useUIStore();
+  const aiConfig = useGameStore(s => s.aiConfig);
+  const setAIConfig = useGameStore(s => s.setAIConfig);
   const [variant, setVariant] = useState(ALL_VARIANTS[0]);
   const [size, setSize] = useState<BoardSize>(10);
   const [selTheme, setSelTheme] = useState(theme);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const a = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
-  const sfc = useMemo(() => '#' + theme.background.surface.toString(16).padStart(6, '0'), [theme]);
 
   const validSizes = BOARD_SIZES.filter(s => variant.recommendedSizes.includes(s.size));
 
@@ -113,8 +121,51 @@ export function GameSetup({ onStart }: Props) {
           </div>
         </Panel>
 
+        {/* AI opponent */}
+        <Panel label="AI 对战" accent={a}>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={aiConfig.enabled}
+                onChange={e => setAIConfig({ enabled: e.target.checked })}
+                className="w-4 h-4 rounded" />
+              <span className="text-sm text-white/70">启用 AI 对手</span>
+            </label>
+            {aiConfig.enabled && (
+              <>
+                <select
+                  value={aiConfig.aiPlayer}
+                  onChange={e => setAIConfig({ aiPlayer: e.target.value as 'white' | 'black' })}
+                  className="text-sm px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-white/70">
+                  <option value="black">AI 执黑</option>
+                  <option value="white">AI 执白</option>
+                </select>
+                <div className="flex gap-1">
+                  {AI_LEVELS.map(lv => (
+                    <button key={lv.value}
+                      onClick={() => setAIConfig({ difficulty: lv.value })}
+                      className="px-3 py-1 rounded-lg text-xs font-medium border transition-colors"
+                      style={{
+                        borderColor: aiConfig.difficulty === lv.value ? a : 'rgba(255,255,255,0.1)',
+                        color: aiConfig.difficulty === lv.value ? a : 'rgba(255,255,255,0.5)',
+                        background: aiConfig.difficulty === lv.value ? a + '10' : 'transparent',
+                      }}>
+                      {lv.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          {aiConfig.enabled && (
+            <p className="text-[11px] text-white/35 mt-2">
+              {aiConfig.aiPlayer === 'black' ? '你先手（白方），AI 后手（黑方）' : 'AI 先手（白方），你后手（黑方）'}
+              {' · '}{AI_LEVELS.find(l => l.value === aiConfig.difficulty)?.desc}
+            </p>
+          )}
+        </Panel>
+
         {/* Buttons */}
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-3 mt-4">
           <motion.button onClick={() => setShowTutorial(true)}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             className="px-6 py-3.5 rounded-xl text-base font-bold border transition-colors duration-200"
