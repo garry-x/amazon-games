@@ -115,12 +115,14 @@ export class GameCanvas {
     this.app.stage.addChild(this.pieceLayer);
     this.app.stage.addChild(this.effectLayer);
 
-    // Make canvas fill the container
+    // Make canvas fill the container (critical for touch hit testing)
     if (!this.app?.canvas) return;
     const canvas = this.app.canvas as HTMLCanvasElement;
     canvas.style.position = 'absolute';
     canvas.style.top = '0';
     canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
     container.appendChild(canvas);
     this.setupInteraction();
 
@@ -756,34 +758,44 @@ export class GameCanvas {
     const canvas = this.app.canvas as HTMLCanvasElement;
     canvas.style.cursor = 'pointer';
     canvas.style.touchAction = 'none';
+    canvas.tabIndex = 0; // make focusable for keyboard events
+    canvas.style.outline = 'none';
 
-    // Use pointer events — unified mouse + touch, more reliable than click+touchstart
-    canvas.addEventListener('pointerdown', (e: PointerEvent) => {
-      e.preventDefault();
+    const handleDown = (e: MouseEvent | Touch) => {
       const pos = this.eventToPos(e);
-      if (pos && this.onCellClick) {
-        // Capture pointer to ensure we get the release
-        (e.target as Element).setPointerCapture?.(e.pointerId);
-        this.onCellClick(pos);
+      if (pos && this.onCellClick) this.onCellClick(pos);
+    };
+
+    // Desktop: click
+    canvas.addEventListener('click', (e: MouseEvent) => {
+      // Skip if this is a synthesized click from touch (handled by touchstart)
+      if (e.detail === 0) return;
+      handleDown(e);
+    });
+
+    // Mobile: touchstart (more reliable than pointerdown on some devices)
+    canvas.addEventListener('touchstart', (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.touches.length > 0) {
+        handleDown(e.touches[0]);
       }
+    }, { passive: false });
+
+    // Prevent touchend from generating a click
+    canvas.addEventListener('touchend', (e: TouchEvent) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    // Also handle pointerdown as a modern fallback
+    canvas.addEventListener('pointerdown', (e: PointerEvent) => {
+      // Touch handled by touchstart, skip
+      if (e.pointerType === 'touch') return;
+      handleDown(e);
     });
 
-    canvas.addEventListener('pointermove', (e: PointerEvent) => {
-      const next = this.eventToPos(e);
-      const changed = (this.hoveredCell === null) !== (next === null)
-        || (this.hoveredCell && next && !posEqual(this.hoveredCell, next));
-      this.hoveredCell = next;
-      if (changed && this.initialized) this.redraw();
-    });
-
-    canvas.addEventListener('pointerleave', () => {
-      this.hoveredCell = null;
-      if (this.initialized) this.redraw();
-    });
-
-    // Fallback: keep mouse-specific events for hover on desktop
+    // Hover/move tracking
     canvas.addEventListener('mousemove', (e: MouseEvent) => {
-      if (e.pointerType === 'touch') return; // already handled by pointermove
       const next = this.eventToPos(e);
       const changed = (this.hoveredCell === null) !== (next === null)
         || (this.hoveredCell && next && !posEqual(this.hoveredCell, next));
