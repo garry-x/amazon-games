@@ -588,7 +588,7 @@ export class GameCanvas {
     // Pre-spawn particles for impact burst
     const particles: Particle[] = [];
     const shootAngle = Math.atan2(ty - fy, tx - fx);
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 50; i++) {
       const p = poolGet();
       p.x = tx; p.y = ty;
       // Fan out from the arrow's direction
@@ -596,7 +596,7 @@ export class GameCanvas {
       const speed = 50 + Math.random() * 200;
       p.vx = Math.cos(a) * speed;
       p.vy = Math.sin(a) * speed;
-      p.life = 0; p.maxLife = 0.3 + Math.random() * 0.5;
+      p.life = 0; p.maxLife = 0.5 + Math.random() * 0.6;
       p.color = i < 12 ? color : (i < 24 ? pColor : burnColor);
       p.size = 2 + Math.random() * 5;
       particles.push(p);
@@ -605,8 +605,8 @@ export class GameCanvas {
     this.shotAnims.push({
       fx, fy, tx, ty,
       elapsed: 0,
-      bowDuration: 0.12,                    // brief draw flash
-      flyDuration: Math.max(200, Math.min(400, dist * 1.0)),
+      bowDuration: 0.18,                    // draw flash (visible)
+      flyDuration: Math.max(300, Math.min(550, dist * 1.5)),
       color,
       particles,
       phase: 'bow',
@@ -722,11 +722,12 @@ export class GameCanvas {
     }
 
     this.effectLayer.addChild(g);
+    // Keep visible for several frames (80ms) so animation is visible
     const frameGfx = g;
-    this.app.ticker.addOnce(() => {
-      this.effectLayer.removeChild(frameGfx);
+    setTimeout(() => {
+      if (frameGfx.parent) this.effectLayer.removeChild(frameGfx);
       frameGfx.destroy();
-    });
+    }, 80);
   }
 
   // ========== Interaction ==========
