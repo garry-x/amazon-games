@@ -332,7 +332,7 @@ export class GameCanvas {
     this.bgSprite.height = th * scale;
     this.bgSprite.x = (w - this.bgSprite.width) / 2;
     this.bgSprite.y = (h - this.bgSprite.height) / 2;
-    this.bgSprite.alpha = 0.45;
+    this.bgSprite.alpha = 0.65;
   }
 
   private positionBoardTexture(): void {
