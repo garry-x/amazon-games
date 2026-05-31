@@ -32,18 +32,6 @@ function poolPut(p: Particle) {
 }
 
 // ── Animation state ──
-interface TrailPoint { x: number; y: number; }
-
-interface MeteorAnim {
-  tx: number; ty: number;
-  elapsed: number;
-  fallDuration: number;
-  color: number;
-  particles: Particle[];
-  phase: 'fall' | 'impact' | 'done';
-  trail: TrailPoint[];  // position history for comet tail
-}
-
 export class GameCanvas {
   private app!: Application;
   private bgContainer!: Container;
@@ -65,8 +53,6 @@ export class GameCanvas {
   private boardTexSprite: Sprite | null = null;
   private burnGfx: Container | null = null;
   private pieceSprites: Map<string, Container> = new Map();
-  private meteorAnims: MeteorAnim[] = [];
-  private meteorGfx: Graphics | null = null;
   private lastRedrawTime = 0;
   private lastBurnedCount = -1;
   private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
@@ -175,19 +161,6 @@ export class GameCanvas {
 
   setState(state: GameState): void {
     if (!this.initialized || !this.app?.renderer) { this.pendingState = state; return; }
-
-    // Detect new burn: trigger meteor BEFORE redraw so crater is hidden during animation
-    if (this.state && state.moveHistory.length > this.state.moveHistory.length) {
-      const lastMove = state.moveHistory[state.moveHistory.length - 1];
-      if (lastMove && state.burnedCells.length > (this.state.burnedCells.length || 0)) {
-        // New cell was burned — start meteor immediately
-        const cs = this.cellSize;
-        const tx = this.ox + lastMove.arrow.col * cs + cs / 2;
-        const ty = this.oy + lastMove.arrow.row * cs + cs / 2;
-        this.startMeteorEffectAt(tx, ty);
-      }
-    }
-
     this.state = state;
     this.recalcSize();
     this.redraw();
@@ -488,21 +461,9 @@ export class GameCanvas {
     const cs = this.cellSize;
     const c = new Container();
 
-    // Build set of cells currently being hit by a meteor (don't draw crater yet)
-    const activeTargets = new Set(
-      this.meteorAnims.map(a => {
-        const col = Math.round((a.tx - this.ox) / cs);
-        const row = Math.round((a.ty - this.oy) / cs);
-        return `${col},${row}`;
-      })
-    );
-
     for (const b of this.state.burnedCells) {
       const cx = this.ox + b.col * cs + cs / 2;
       const cy = this.oy + b.row * cs + cs / 2;
-
-      // Skip: meteor still active on this cell
-      if (activeTargets.has(`${b.col},${b.row}`)) continue;
 
       if (this.burnTex) {
         const sprite = new Sprite(this.burnTex);
@@ -623,8 +584,7 @@ export class GameCanvas {
     if (this.state.moveHistory.length > this.lastRenderedMoveCount) {
       const last = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(last.from, last.to);
-      // Meteor is now triggered from setState to ensure correct ordering
-      // (crater hiding needs the animation to be active BEFORE drawBurns runs)
+      this.drawMoveArrow(last.from, last.to);
       this.lastRenderedMoveCount = this.state.moveHistory.length;
     }
   }
@@ -725,220 +685,6 @@ export class GameCanvas {
 
   // ========== Animated shot system ==========
 
-  // ========== Meteor strike animation ==========
-
-  /** Trigger meteor at pixel coordinates (called from setState before redraw) */
-  private startMeteorEffectAt(tx: number, ty: number): void {
-    const color = this.theme.effects.arrow;
-    const pColor = this.theme.effects.particle;
-    const burnColor = this.theme.effects.burnGlow;
-
-    const particles: Particle[] = [];
-    for (let i = 0; i < 100; i++) {
-      const p = poolGet();
-      p.x = tx; p.y = ty;
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 100 + Math.random() * 350;
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed - Math.random() * 100;
-      p.life = 0; p.maxLife = 0.5 + Math.random() * 0.9;
-      p.color = i < 30 ? 0xffdd00 : (i < 55 ? color : (i < 75 ? pColor : burnColor));
-      p.size = 3 + Math.random() * 10;
-      particles.push(p);
-    }
-
-    this.meteorAnims.push({
-      tx, ty, elapsed: 0, fallDuration: 0.7, color, particles, phase: 'fall', trail: [],
-    });
-  }
-
-  /** Legacy entry point for drawPieces compatibility */
-  private startMeteorEffect(from: Position, to: Position): void {
-    const cs = this.cellSize;
-    const tx = this.ox + to.col * cs + cs / 2;
-    const ty = this.oy + to.row * cs + cs / 2;
-    this.startMeteorEffectAt(tx, ty);
-  }
-
-  private renderMeteorEffects(dt: number): void {
-    if (!this.meteorGfx) {
-      this.meteorGfx = new Graphics();
-      this.effectLayer.addChild(this.meteorGfx);
-    }
-
-    // Clean completed
-    this.meteorAnims = this.meteorAnims.filter(a => {
-      if (a.phase === 'impact') {
-        a.elapsed += dt;
-        if (a.elapsed > 2.0) {
-          for (const p of a.particles) poolPut(p);
-          return false;
-        }
-      }
-      return true;
-    });
-
-    if (this.meteorAnims.length === 0) {
-      if (this.meteorGfx) {
-        this.effectLayer.removeChild(this.meteorGfx);
-        this.meteorGfx.destroy();
-        this.meteorGfx = null;
-      }
-      return;
-    }
-
-    const g = this.meteorGfx;
-    g.clear();
-    const cs = this.cellSize;
-
-    for (const a of this.meteorAnims) {
-      a.elapsed += dt;
-
-      // ── METEOR FALL ──
-      if (a.phase === 'fall') {
-        const t = Math.min(a.elapsed / a.fallDuration, 1);
-        const et = Ease.inQuad(t); // accelerate downward
-        const topY = -cs * 2; // start above screen
-        const my = topY + (a.ty - topY) * et;
-        const mx = a.tx + Math.sin(t * Math.PI * 2) * cs * 0.3; // slight wobble
-
-        // Record position for trail history (max 12 points)
-        a.trail.push({ x: mx, y: my });
-        if (a.trail.length > 12) a.trail.shift();
-
-        // Draw comet tail — tapered, fading from bright to dark
-        const maxWidth = cs * 0.22;
-        // Width curve: exponential decay from head to tail
-        const widthFn = (f: number) => Math.max(0.01, maxWidth * Math.exp(-f * 4));
-
-        // Color gradient: smooth interpolation bright→dark
-        const lerpColor = (f: number): number => {
-          const r = Math.floor(255 * (1 - f * 0.6));
-          const g = Math.floor(200 * Math.exp(-f * 3.5));
-          const b = Math.floor(30 * (1 - f) * f); // peaks at mid, fades at ends
-          return (Math.max(0, Math.min(255, r)) << 16) |
-                 (Math.max(0, Math.min(255, g)) << 8) |
-                 Math.max(0, Math.min(255, b));
-        };
-
-        for (let i = 0; i < a.trail.length; i++) {
-          const pt = a.trail[i];
-          const idx = a.trail.length - 1 - i;
-          const frac = idx / (a.trail.length - 1);
-          if (frac >= 1) continue;
-          const r = widthFn(frac);
-          if (r < 0.3) continue;
-          const alpha = (1 - frac) * 0.65;
-          g.circle(pt.x, pt.y, r);
-          g.fill({ color: lerpColor(frac), alpha });
-        }
-
-        // Meteor head — round fireball (AI texture or fallback circles)
-        const headR = cs * 0.22;
-        if (this.vfxFireball) {
-          const tex = this.vfxFireball;
-          const m = new Matrix();
-          m.translate(-tex.width / 2, -tex.height / 2);
-          m.scale(headR * 2.5 / tex.width, headR * 2.5 / tex.height);
-          m.translate(mx, my);
-          g.circle(mx, my, headR * 1.3);
-          g.fill({ texture: tex, matrix: m, alpha: 0.9 });
-          // Bright core glow
-          g.circle(mx, my, headR * 0.5);
-          g.fill({ color: 0xffffff, alpha: 0.5 });
-        } else {
-          g.circle(mx, my, headR * 1.5); g.fill({ color: 0xff6600, alpha: 0.35 });
-          g.circle(mx, my, headR * 1.1); g.fill({ color: 0xff9900, alpha: 0.55 });
-          g.circle(mx, my, headR * 0.6); g.fill({ color: 0xffdd00, alpha: 0.8 });
-          g.circle(mx, my, headR * 0.2); g.fill({ color: 0xffffff, alpha: 0.9 });
-        }
-
-        // Screen flash when close
-        if (et > 0.8) {
-          const fa = (et - 0.8) / 0.2 * 0.3;
-          g.rect(this.ox - 10, this.oy - 10, this.boardPx + 20, this.boardPx + 20);
-          g.fill({ color: 0xff8800, alpha: fa });
-        }
-
-        if (t >= 1) {
-          a.phase = 'impact'; a.elapsed = 0;
-          // Crater fade-in already registered in startMeteorEffectAt
-        }
-      }
-
-      // ── EXPLOSION ──
-      if (a.phase === 'impact') {
-        const t = Math.min(a.elapsed / 1.4, 1);
-
-        // White flash
-        if (t < 0.12) {
-          const ft = t / 0.12;
-          g.circle(a.tx, a.ty, cs * 0.7 * ft);
-          g.fill({ color: 0xffffff, alpha: 0.95 * (1 - ft) });
-        }
-
-        // AI-generated explosion sprite (scales up, fades out)
-        if (this.vfxExplosion) {
-          const tex = this.vfxExplosion;
-          const scale = 0.4 + t * 2.5;
-          const size = cs * scale;
-          const alpha = t < 0.15 ? t / 0.15 : (1 - (t - 0.15) / 0.85);
-          const m = new Matrix();
-          m.translate(-tex.width / 2, -tex.height / 2);
-          m.scale(size / tex.width, size / tex.height);
-          m.translate(a.tx, a.ty);
-          g.rect(a.tx - size / 2, a.ty - size / 2, size, size);
-          g.fill({ texture: tex, matrix: m, alpha: alpha * 0.85 });
-        }
-
-        // Shockwave rings
-        for (let ring = 0; ring < 3; ring++) {
-          const rt = Math.max(0, t - ring * 0.18);
-          const ringR = cs * 1.2 * rt;
-          g.circle(a.tx, a.ty, ringR);
-          g.stroke({ color: 0xff6600, width: 3, alpha: 0.6 * (1 - rt) });
-        }
-
-        // AI smoke puff (appears after peak, expands)
-        if (this.vfxSmoke && t > 0.2) {
-          const st = (t - 0.2) / 0.8;
-          const tex = this.vfxSmoke;
-          const ssize = cs * (0.5 + st * 2.0);
-          const salpha = st * 0.5 * (1 - st * 0.5);
-          const sm = new Matrix();
-          sm.translate(-tex.width / 2, -tex.height / 2);
-          sm.scale(ssize / tex.width, ssize / tex.height);
-          sm.translate(a.tx, a.ty);
-          g.rect(a.tx - ssize / 2, a.ty - ssize / 2, ssize, ssize);
-          g.fill({ texture: tex, matrix: sm, alpha: salpha });
-        }
-
-        // Debris particles (activate on first frame)
-        if (a.elapsed < 0.08) {
-          for (const p of a.particles) { p.life = p.maxLife; p.maxLife = -1; }
-        }
-        for (const p of a.particles) {
-          if (p.life <= 0) continue;
-          const pdt = Math.min(dt, 0.05);
-          p.x += p.vx * pdt;
-          p.y += p.vy * pdt;
-          p.vx *= 0.91;
-          p.vy *= 0.91;
-          p.vy += 140 * pdt; // gravity — debris falls naturally
-          p.life -= pdt;
-          if (p.life <= 0) continue;
-          const alpha = p.life / Math.abs(p.maxLife);
-          const size = Math.max(2, p.size * (0.4 + alpha * 0.6));
-          g.circle(p.x, p.y, size);
-          g.fill({ color: p.color, alpha: alpha * 0.8 });
-          if (size > 4) {
-            g.circle(p.x, p.y, size * 2);
-            g.stroke({ color: 0xffffff, width: 1, alpha: alpha * 0.1 });
-          }
-        }
-      }
-    }
-  }
 
   // ========== Fire particles on burned cells ==========
 
@@ -1097,7 +843,6 @@ export class GameCanvas {
 
     // Render animated shot effects with deltaTime
     const dt = this.app.ticker.deltaMS / 1000;
-    this.renderMeteorEffects(dt);
     this.renderFireParticles(dt);
   }
 }
