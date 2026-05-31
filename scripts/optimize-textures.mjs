@@ -32,7 +32,7 @@ for (const dir of DIRS) {
 
     try {
       await sharp(pngPath)
-        .webp({ quality: 80, effort: 4 })
+        .webp({ quality: 92, effort: 6 })
         .toFile(webpPath);
       const after = statSync(webpPath).size;
       totalAfter += after;
