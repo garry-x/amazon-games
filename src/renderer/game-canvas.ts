@@ -205,17 +205,17 @@ export class GameCanvas {
       this.redraw();
     });
 
-    // Piece textures
-    this.loadImage(`/textures/${themeId}-piece-white.png`, (img) => {
+    // Piece textures (with transparency extraction)
+    this.loadTransparent(`/textures/${themeId}-piece-white.png`, (img) => {
       this.pieceTexWhite = Texture.from(img);
       this.redraw();
     });
-    this.loadImage(`/textures/${themeId}-piece-black.png`, (img) => {
+    this.loadTransparent(`/textures/${themeId}-piece-black.png`, (img) => {
       this.pieceTexBlack = Texture.from(img);
       this.redraw();
     });
-    // Burn/crater texture
-    this.loadImage(`/textures/${themeId}-burn.png`, (img) => {
+    // Burn/crater texture (transparent for overlay)
+    this.loadTransparent(`/textures/${themeId}-burn.png`, (img) => {
       this.burnTex = Texture.from(img);
       this.redraw();
     });
@@ -232,8 +232,53 @@ export class GameCanvas {
 
   private loadImage(url: string, onLoad: (img: HTMLImageElement) => void): void {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => onLoad(img);
-    img.onerror = () => {}; // Silently skip if not generated
+    img.onerror = () => {};
+    img.src = url;
+  }
+
+  /** Load image and remove background to create transparent texture */
+  private loadTransparent(url: string, onLoad: (img: HTMLImageElement) => void): void {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Create offscreen canvas to strip magenta/green background
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = data.data;
+
+      // Remove near-white or near-magenta pixels (chroma key)
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+        // Detect white/gray background (R>200,G>200,B>200) or magenta (R>200,B>200,G<100)
+        const isWhite = r > 210 && g > 210 && b > 210;
+        const isMagenta = r > 200 && g < 80 && b > 200;
+        const isGreen = g > 200 && r < 80 && b < 80;
+        if (isWhite || isMagenta || isGreen) {
+          pixels[i + 3] = 0; // transparent
+        } else {
+          // Soft edge feathering: reduce alpha for near-background colors
+          const dist = Math.min(
+            Math.abs(r - 255) + Math.abs(g - 255) + Math.abs(b - 255),
+            Math.abs(r - 255) + Math.abs(g - 0) + Math.abs(b - 255),
+          );
+          if (dist < 60) {
+            pixels[i + 3] = Math.floor(pixels[i + 3] * dist / 60);
+          }
+        }
+      }
+      ctx.putImageData(data, 0, 0);
+
+      const outImg = new Image();
+      outImg.onload = () => onLoad(outImg);
+      outImg.src = canvas.toDataURL('image/png');
+    };
+    img.onerror = () => {};
     img.src = url;
   }
 
