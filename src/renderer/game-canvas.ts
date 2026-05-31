@@ -62,8 +62,6 @@ export class GameCanvas {
   private pieceSprites: Map<string, Container> = new Map();
   private meteorAnims: MeteorAnim[] = [];
   private meteorGfx: Graphics | null = null;
-  /** Cells currently fading in their crater (key → elapsed seconds since impact) */
-  private craterFadeIns: Map<string, number> = new Map();
   private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
   private fireGfx: Graphics | null = null;
   private lastRenderedMoveCount = 0;
@@ -467,26 +465,28 @@ export class GameCanvas {
     const cs = this.cellSize;
     const c = new Container();
 
+    // Build set of cells currently being hit by a meteor (don't draw crater yet)
+    const activeTargets = new Set(
+      this.meteorAnims.map(a => {
+        const col = Math.round((a.tx - this.ox) / cs);
+        const row = Math.round((a.ty - this.oy) / cs);
+        return `${col},${row}`;
+      })
+    );
+
     for (const b of this.state.burnedCells) {
       const cx = this.ox + b.col * cs + cs / 2;
       const cy = this.oy + b.row * cs + cs / 2;
 
-      if (this.burnTex) {
-        // Delayed fade-in: crater starts appearing 0.8s after impact,
-        // reaches full opacity at 1.4s (when explosion ends)
-        const fadeKey = `${b.col},${b.row}`;
-        const fadeElapsed = this.craterFadeIns.get(fadeKey) ?? 999;
-        const fadeDelay = 0.8;  // wait for explosion peak to pass
-        const fadeDuration = 0.6; // then fade in over 0.6s
-        const fadeT = Math.max(0, Math.min((fadeElapsed - fadeDelay) / fadeDuration, 1));
-        const fadeAlpha = fadeT < 0.01 ? 0 : 1 - (1 - fadeT) * (1 - fadeT);
-        const scale = 0.85 + fadeT * 0.15;
+      // Skip: meteor still active on this cell
+      if (activeTargets.has(`${b.col},${b.row}`)) continue;
 
+      if (this.burnTex) {
         const sprite = new Sprite(this.burnTex);
         sprite.anchor.set(0.5);
-        sprite.alpha = 0.75 * fadeAlpha;
-        sprite.width = cs * 0.88 * scale;
-        sprite.height = cs * 0.88 * scale;
+        sprite.alpha = 0.75;
+        sprite.width = cs * 0.88;
+        sprite.height = cs * 0.88;
         sprite.x = cx;
         sprite.y = cy;
         c.addChild(sprite);
@@ -702,12 +702,6 @@ export class GameCanvas {
     const color = this.theme.effects.arrow;
     const pColor = this.theme.effects.particle;
     const burnColor = this.theme.effects.burnGlow;
-
-    // Register crater fade-in IMMEDIATELY so drawBurns sees it (alpha=0 until impact+delay)
-    const cs = this.cellSize;
-    const col = Math.round((tx - this.ox) / cs);
-    const row = Math.round((ty - this.oy) / cs);
-    this.craterFadeIns.set(`${col},${row}`, 0);
 
     const particles: Particle[] = [];
     for (let i = 0; i < 100; i++) {
@@ -1062,12 +1056,5 @@ export class GameCanvas {
     const dt = this.app.ticker.deltaMS / 1000;
     this.renderMeteorEffects(dt);
     this.renderFireParticles(dt);
-    // Advance crater fade-ins (only while explosion is playing)
-    const anyExploding = this.meteorAnims.some(a => a.phase === 'impact');
-    if (anyExploding) {
-      for (const [key, elapsed] of this.craterFadeIns) {
-        this.craterFadeIns.set(key, elapsed + dt);
-      }
-    }
   }
 }
