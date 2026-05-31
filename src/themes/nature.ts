@@ -14,16 +14,19 @@ export const natureTheme: Theme = {
   },
 
   background: {
-    primary: 0x0d1b0e,
-    secondary: 0x1a2f15,
+    primary: 0x0a1609,
+    secondary: 0x142810,
     accent: 0x6b8f3b,
+    surface: 0x0e1c0c,
   },
 
   pieces: {
     white: 0xf5f9e9,
     whiteGlow: 0xa8e6cf,
-    black: 0x1b3a1a,
+    whiteShadow: 0x3e6b3a,
+    black: 0x0f1f0d,
     blackGlow: 0x2e7d32,
+    blackShadow: 0x050e04,
   },
 
   effects: {

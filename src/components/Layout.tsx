@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../store/ui-store';
-import { ALL_THEMES } from '../store/ui-store';
-import { ALL_VARIANTS, useGameStore } from '../store/game-store';
+import { useGameStore } from '../store/game-store';
 import { GameSetup } from './GameSetup';
 import { GameBoard } from './GameBoard';
 import { GameHUD } from './GameHUD';
@@ -9,59 +8,41 @@ import { MoveHistory } from './MoveHistory';
 import { ThemePicker } from './ThemePicker';
 import { ResultDialog } from './ResultDialog';
 import { Tutorial } from './Tutorial';
-import { useState } from 'react';
-import type { BoardSize } from '../game/types';
-import type { VariantConfig } from '../game/types';
+import { useState, useMemo } from 'react';
+import type { BoardSize, VariantConfig } from '../game/types';
 
 export function Layout() {
   const { showSetup, setShowSetup } = useUIStore();
-  const { gameState, startGame, resetGame } = useGameStore();
+  const { gameState, startGame } = useGameStore();
   const theme = useUIStore(s => s.theme);
   const [showHistory, setShowHistory] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const isPlaying = gameState && gameState.phase !== 'finished';
+  const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
+  const bg1 = useMemo(() => '#' + theme.background.primary.toString(16).padStart(6, '0'), [theme]);
+  const bg2 = useMemo(() => '#' + theme.background.secondary.toString(16).padStart(6, '0'), [theme]);
 
-  const handleStartGame = (variant: VariantConfig, boardSize: BoardSize) => {
-    startGame(variant, boardSize);
-    setShowSetup(false);
-  };
-
-  const handleBackToSetup = () => {
-    setShowSetup(true);
-  };
-
-  const bgColor = '#' + theme.background.primary.toString(16).padStart(6, '0');
-  const accentColor = '#' + theme.background.accent.toString(16).padStart(6, '0');
+  const handleStart = (v: VariantConfig, s: BoardSize) => { startGame(v, s); setShowSetup(false); };
 
   return (
-    <div
-      className="h-full flex flex-col relative overflow-hidden"
-      style={{ background: `linear-gradient(135deg, ${bgColor} 0%, #0a0a0f 100%)` }}
-    >
-      {/* Animated background particles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {Array.from({ length: 20 }).map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full"
+    <div className="h-full flex flex-col relative overflow-hidden"
+      style={{ background: `radial-gradient(ellipse at 50% 40%, ${bg2}dd 0%, ${bg1} 70%, #050510 100%)` }}>
+
+      {/* Ambient particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
+        {Array.from({ length: 30 }).map((_, i) => (
+          <motion.div key={i} className="absolute rounded-full"
             style={{
-              background: accentColor,
-              width: Math.random() * 4 + 1,
-              height: Math.random() * 4 + 1,
+              background: accent,
+              width: 2 + Math.random() * 3,
+              height: 2 + Math.random() * 3,
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
-              opacity: 0.15,
+              opacity: 0.1 + Math.random() * 0.15,
             }}
-            animate={{
-              y: [0, -30, 0],
-              opacity: [0.1, 0.3, 0.1],
-            }}
-            transition={{
-              duration: Math.random() * 4 + 3,
-              repeat: Infinity,
-              delay: Math.random() * 3,
-            }}
+            animate={{ y: [0, -40, 0], opacity: [0.08, 0.22, 0.08] }}
+            transition={{ duration: 3 + Math.random() * 5, repeat: Infinity, delay: Math.random() * 4 }}
           />
         ))}
       </div>
@@ -69,95 +50,55 @@ export function Layout() {
       {/* Top bar */}
       {isPlaying && (
         <motion.div
-          initial={{ y: -60 }}
-          animate={{ y: 0 }}
-          className="relative z-10 flex items-center justify-between px-6 py-3"
-          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)' }}
+          initial={{ y: -64 }} animate={{ y: 0 }}
+          className="relative z-10 flex items-center justify-between px-5 py-2.5 border-b border-white/5"
+          style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(16px)' }}
         >
-          <div className="flex items-center gap-4">
-            <h1
-              className="text-2xl font-bold tracking-wider"
-              style={{
-                color: accentColor,
-                textShadow: `0 0 20px ${accentColor}44`,
-              }}
-            >
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-wider"
+              style={{ color: accent, textShadow: `0 0 16px ${accent}44` }}>
               ⚔ 亚马逊棋
             </h1>
-            <span className="text-white/40 text-sm font-mono">
-              Game of the Amazons
-            </span>
+            <span className="text-white/30 text-xs font-mono hidden sm:inline">Game of the Amazons</span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowTutorial(true)}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200
-                border border-white/10 hover:border-white/30 text-white/70 hover:text-white"
-              style={{ background: 'rgba(255,255,255,0.05)' }}
-            >
-              📖 教程
-            </button>
+          <div className="flex items-center gap-2">
+            <TopBtn onClick={() => setShowTutorial(true)}>📖 教程</TopBtn>
             <ThemePicker />
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200
-                border border-white/10 hover:border-white/30 text-white/70 hover:text-white"
-              style={{ background: 'rgba(255,255,255,0.05)' }}
-            >
+            <TopBtn onClick={() => setShowHistory(!showHistory)}>
               {showHistory ? '隐藏记录' : '走棋记录'}
-            </button>
-            <button
-              onClick={handleBackToSetup}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200
-                border border-white/10 hover:border-white/30 text-white/70 hover:text-white"
-              style={{ background: 'rgba(255,255,255,0.05)' }}
-            >
-              新游戏
-            </button>
+            </TopBtn>
+            <TopBtn onClick={() => setShowSetup(true)}>新游戏</TopBtn>
           </div>
         </motion.div>
       )}
 
-      {/* Main content */}
+      {/* Main */}
       <div className="flex-1 flex relative overflow-hidden">
-        {/* Setup screen */}
         <AnimatePresence>
           {showSetup && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4 }}
+              initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.35 }}
               className="absolute inset-0 z-20 flex items-center justify-center"
             >
-              <GameSetup onStart={handleStartGame} />
+              <GameSetup onStart={handleStart} />
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Game area */}
         {!showSetup && gameState && (
           <div className="flex-1 flex relative">
-            {/* Board */}
             <div className="flex-1 relative">
               <GameBoard />
-
-              {/* HUD overlay */}
-              <div className="absolute top-4 left-4 z-10">
-                <GameHUD />
-              </div>
+              <div className="absolute top-4 left-4 z-10"><GameHUD /></div>
             </div>
-
-            {/* Side panel: move history */}
             <AnimatePresence>
               {showHistory && (
                 <motion.div
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 280, opacity: 1 }}
+                  initial={{ width: 0, opacity: 0 }} animate={{ width: 280, opacity: 1 }}
                   exit={{ width: 0, opacity: 0 }}
                   className="border-l border-white/10 overflow-hidden"
-                  style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)' }}
+                  style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(12px)' }}
                 >
                   <MoveHistory />
                 </motion.div>
@@ -166,14 +107,23 @@ export function Layout() {
           </div>
         )}
 
-        {/* Result dialog */}
         <AnimatePresence>
           {gameState?.phase === 'finished' && <ResultDialog />}
         </AnimatePresence>
 
-        {/* Tutorial dialog */}
         <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
       </div>
     </div>
+  );
+}
+
+function TopBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick}
+      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
+        border border-white/8 hover:border-white/25 text-white/60 hover:text-white"
+      style={{ background: 'rgba(255,255,255,0.04)' }}>
+      {children}
+    </button>
   );
 }

@@ -1,6 +1,7 @@
 import { useGameStore } from '../store/game-store';
 import { useUIStore } from '../store/ui-store';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo } from 'react';
 
 export function GameHUD() {
   const gameState = useGameStore(s => s.gameState);
@@ -8,52 +9,41 @@ export function GameHUD() {
   const forfeit = useGameStore(s => s.forfeit);
   const theme = useUIStore(s => s.theme);
 
+  const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
+  const whiteClr = useMemo(() => '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0'), [theme]);
+  const blackClr = useMemo(() => '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0'), [theme]);
+
   if (!gameState || gameState.phase !== 'playing') return null;
 
-  const currentPlayer = gameState.currentPlayer;
+  const player = gameState.currentPlayer;
   const step = gameState.step;
-  const accentColor = '#' + theme.background.accent.toString(16).padStart(6, '0');
-
-  const playerColor = currentPlayer === 'white'
-    ? '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0')
-    : '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0');
-
-  const moveCount = gameState.moveHistory.length;
-  const burnedCount = gameState.burnedCells.length;
+  const playerColor = player === 'white' ? whiteClr : blackClr;
+  const moves = gameState.moveHistory.length;
+  const burned = gameState.burnedCells.length;
 
   return (
-    <div
-      className="p-4 rounded-xl border border-white/10 min-w-[220px]"
-      style={{
-        background: 'rgba(10,10,20,0.7)',
-        backdropFilter: 'blur(10px)',
-      }}
-    >
-      {/* Current player */}
-      <div className="mb-3">
-        <div className="text-xs text-white/40 uppercase tracking-wider mb-1">当前回合</div>
+    <div className="p-4 rounded-xl border border-white/8 min-w-[200px] select-none"
+      style={{ background: 'rgba(8,8,18,0.75)', backdropFilter: 'blur(16px)', boxShadow: `0 0 30px ${accent}11` }}>
+
+      {/* Turn indicator */}
+      <div className="mb-4">
+        <div className="text-[10px] text-white/30 uppercase tracking-[0.15em] mb-2">当前回合</div>
         <AnimatePresence mode="wait">
-          <motion.div
-            key={currentPlayer + step}
-            initial={{ x: -10, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 10, opacity: 0 }}
-            className="flex items-center gap-3"
-          >
-            {/* Player indicator piece */}
-            <div
-              className="w-8 h-8 rounded-full flex-shrink-0"
-              style={{
-                background: playerColor,
-                boxShadow: `0 0 15px ${playerColor}88`,
-              }}
-            />
+          <motion.div key={player + step}
+            initial={{ x: -8, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 8, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center gap-3">
+            {/* Gem piece */}
+            <div className="w-9 h-9 rounded-full flex-shrink-0 relative"
+              style={{ background: `radial-gradient(circle at 35% 30%, ${playerColor}cc, ${playerColor}44)`, boxShadow: `0 0 18px ${playerColor}66, inset 0 0 6px ${playerColor}44` }}>
+              <div className="absolute inset-[3px] rounded-full" style={{ background: `radial-gradient(circle at 30% 25%, #ffffff66, transparent)` }} />
+            </div>
             <div>
-              <div className="text-lg font-bold text-white">
-                {currentPlayer === 'white' ? '白方' : '黑方'}
+              <div className="text-base font-bold text-white leading-tight">
+                {player === 'white' ? '白方' : '黑方'}
               </div>
-              <div className="text-xs" style={{ color: accentColor }}>
-                {step === 'move' ? '→ 移动亚马逊' : '→ 选择射箭目标'}
+              <div className="text-[11px] leading-tight mt-0.5" style={{ color: accent }}>
+                {step === 'move' ? '移动亚马逊' : '🏹 射箭目标'}
               </div>
             </div>
           </motion.div>
@@ -61,44 +51,47 @@ export function GameHUD() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <StatItem label="步数" value={moveCount.toString()} />
-        <StatItem label="燃烧" value={burnedCount.toString()} />
+      <div className="grid grid-cols-2 gap-1.5 mb-3">
+        <Stat label="步数" value={moves} accent={accent} />
+        <Stat label="燃烧格" value={burned} accent={accent} />
       </div>
 
-      {/* Phase indicator */}
-      {step === 'shoot' && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-center py-2 px-3 rounded-lg text-sm font-bold"
-          style={{
-            background: `${accentColor}22`,
-            color: accentColor,
-            border: `1px solid ${accentColor}44`,
-          }}
-        >
-          🏹 选择箭矢目标
-        </motion.div>
+      {/* Variant badge */}
+      {variant && (
+        <div className="mb-3 text-center">
+          <span className="text-[10px] px-2 py-0.5 rounded-full text-white/30 border border-white/5"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            {variant.name}
+          </span>
+        </div>
       )}
 
-      {/* Forfeit button */}
-      <button
-        onClick={forfeit}
-        className="mt-3 w-full py-1.5 rounded-lg text-xs font-medium text-white/40 hover:text-red-400
-          border border-white/5 hover:border-red-400/30 transition-all duration-200"
-      >
+      {/* Shoot phase alert */}
+      <AnimatePresence>
+        {step === 'shoot' && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
+            className="text-center py-1.5 px-3 rounded-lg text-xs font-semibold mb-3"
+            style={{ background: `${accent}18`, color: accent, border: `1px solid ${accent}33`, boxShadow: `0 0 12px ${accent}11` }}>
+            🏹 选择箭矢目标
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button onClick={forfeit}
+        className="w-full py-1.5 rounded-lg text-[11px] font-medium text-white/25 hover:text-red-400/80
+          border border-white/5 hover:border-red-400/25 transition-all duration-200">
         认输
       </button>
     </div>
   );
 }
 
-function StatItem({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
     <div className="text-center p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
-      <div className="text-lg font-bold text-white">{value}</div>
-      <div className="text-xs text-white/30">{label}</div>
+      <div className="text-lg font-bold text-white tabular-nums">{value}</div>
+      <div className="text-[10px] text-white/25">{label}</div>
     </div>
   );
 }
