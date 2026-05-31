@@ -1,15 +1,15 @@
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture } from 'pixi.js';
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
 
 export class GameCanvas {
   private app!: Application;
+  private bgLayer!: Container;
   private boardLayer!: Container;
   private burnLayer!: Container;
   private pieceLayer!: Container;
   private effectLayer!: Container;
-  private uiLayer!: Container;
 
   private cellSize = 0;
   private boardPx = 0;
@@ -26,6 +26,7 @@ export class GameCanvas {
   private pendingState: GameState | null = null;
   private resizeObs: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
+  private bgSprite: Sprite | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -49,18 +50,18 @@ export class GameCanvas {
       height: h,
     });
 
-    // Layer ordering: board → burn → pieces → effects → ui
+    // Layer ordering: bg → board → burn → pieces → effects
+    this.bgLayer = new Container();
     this.boardLayer = new Container();
     this.burnLayer = new Container();
     this.pieceLayer = new Container();
     this.effectLayer = new Container();
-    this.uiLayer = new Container();
 
+    this.app.stage.addChild(this.bgLayer);
     this.app.stage.addChild(this.boardLayer);
     this.app.stage.addChild(this.burnLayer);
     this.app.stage.addChild(this.pieceLayer);
     this.app.stage.addChild(this.effectLayer);
-    this.app.stage.addChild(this.uiLayer);
 
     container.appendChild(this.app.canvas as HTMLCanvasElement);
     this.setupInteraction();
@@ -96,6 +97,32 @@ export class GameCanvas {
   }
 
   setOnCellClick(cb: (pos: Position) => void): void { this.onCellClick = cb; }
+
+  /** Set an AI-generated background image. Pass undefined to remove. */
+  setBackgroundImage(dataUrl: string | undefined): void {
+    if (!this.initialized) return;
+    // Remove existing
+    if (this.bgSprite) { this.bgLayer.removeChild(this.bgSprite); this.bgSprite.destroy(); this.bgSprite = null; }
+    if (!dataUrl) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const tex = Texture.from(img);
+      const sprite = new Sprite(tex);
+      // Cover the entire viewport
+      const w = this.container?.clientWidth || 800;
+      const h = this.container?.clientHeight || 600;
+      const scale = Math.max(w / tex.width, h / tex.height);
+      sprite.width = tex.width * scale;
+      sprite.height = tex.height * scale;
+      sprite.x = (w - sprite.width) / 2;
+      sprite.y = (h - sprite.height) / 2;
+      sprite.alpha = 0.5;
+      this.bgLayer.addChild(sprite);
+      this.bgSprite = sprite;
+    };
+    img.src = dataUrl;
+  }
 
   destroy(): void {
     this.initialized = false;

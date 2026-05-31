@@ -17,6 +17,9 @@ interface UIState {
   setTheme: (theme: Theme) => void;
   showSetup: boolean;
   setShowSetup: (show: boolean) => void;
+  /** AI-generated background image data URL */
+  bgImage: string | undefined;
+  setBgImage: (url: string | undefined) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -24,4 +27,6 @@ export const useUIStore = create<UIState>((set) => ({
   setTheme: (theme) => set({ theme }),
   showSetup: true,
   setShowSetup: (show) => set({ showSetup: show }),
+  bgImage: undefined,
+  setBgImage: (url) => set({ bgImage: url }),
 }));

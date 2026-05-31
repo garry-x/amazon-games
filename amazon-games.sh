@@ -228,6 +228,45 @@ cmd_build() {
 }
 
 # ============================================================
+# AI 纹理生成（需要 ComfyUI 在 http://127.0.0.1:8188 运行）
+# ============================================================
+cmd_generate() {
+  local theme="${1:-all}"
+  local type="${2:-bg}"
+
+  if ! curl -s http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
+    echo "✗ ComfyUI 未运行 (http://127.0.0.1:8188)"
+    echo "  请先启动 ComfyUI 后再试"
+    return 1
+  fi
+
+  echo "⚔  亚马逊棋 — AI 纹理生成"
+  echo "  主题: $theme  类型: $type"
+  echo ""
+
+  cd "$ROOT"
+  node --input-type=module -e "
+    import { textureManager } from './src/comfyui/texture-manager.ts';
+    const themes = '$theme' === 'all'
+      ? ['egyptian','medieval','scifi','nature']
+      : ['$theme'];
+    const types = '$type' === 'all'
+      ? ['bg','board']
+      : ['$type'];
+
+    for (const t of themes) {
+      console.log('→ 生成 ' + t + '...');
+      await textureManager.generateForTheme(t, types, (p) => {
+        if (p.status === 'generating') process.stdout.write('.');
+        else if (p.status === 'done') console.log(' ✓');
+        else if (p.status === 'error') console.log(' ✗ ' + p.error);
+      });
+    }
+    console.log('完成');
+  " 2>&1
+}
+
+# ============================================================
 # 预览生产版本
 # ============================================================
 cmd_preview() {
@@ -261,6 +300,9 @@ cmd_help() {
   echo "  status              查看服务状态"
   echo "  build               构建生产版本到 dist/"
   echo "  preview             预览生产版本"
+  echo "  generate [主题] [类型]  AI 纹理生成 (需 ComfyUI)"
+  echo "    主题: all / egyptian / medieval / scifi / nature"
+  echo "    类型: bg / board / all"
   echo ""
   echo "  config set port <N>   设置监听端口 (当前: ${PORT:-$DEFAULT_PORT})"
   echo "  config set host <H>   设置监听地址 (当前: ${HOST:-$DEFAULT_HOST})"
@@ -286,6 +328,7 @@ case "${1:-help}" in
   status)   cmd_status ;;
   build)    cmd_build ;;
   preview)  cmd_preview ;;
+  generate) shift; cmd_generate "$@" ;;
   config)   shift; cmd_config "$@" ;;
   help|--help|-h) cmd_help ;;
   *)

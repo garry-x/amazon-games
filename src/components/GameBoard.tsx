@@ -11,6 +11,7 @@ export function GameBoard() {
   const gameState = useGameStore(s => s.gameState);
   const handleCellClick = useGameStore(s => s.handleCellClick);
   const theme = useUIStore(s => s.theme);
+  const bgImage = useUIStore(s => s.bgImage);
 
   // Init once
   useEffect(() => {
@@ -22,6 +23,9 @@ export function GameBoard() {
 
     gc.init(containerRef.current).then(() => {
       gc.setOnCellClick((pos: Position) => handleCellClick(pos));
+      // Apply any existing background
+      const img = useUIStore.getState().bgImage;
+      if (img) gc.setBackgroundImage(img);
     });
 
     return () => {
@@ -44,6 +48,13 @@ export function GameBoard() {
       gameCanvasRef.current.setTheme(theme);
     }
   }, [theme]);
+
+  // Sync background image
+  useEffect(() => {
+    if (gameCanvasRef.current) {
+      gameCanvasRef.current.setBackgroundImage(bgImage);
+    }
+  }, [bgImage]);
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden" />
