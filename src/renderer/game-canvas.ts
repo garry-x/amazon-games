@@ -4,62 +4,94 @@ import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
 
 export class GameCanvas {
-  private app: Application;
-  private boardContainer: Container;
-  private piecesContainer: Container;
-  private effectsContainer: Container;
-  private overlayContainer: Container;
-  private cellSize: number = 0;
-  private boardPixelSize: number = 0;
-  private offsetX: number = 0;
-  private offsetY: number = 0;
+  private app!: Application;
+  private boardContainer!: Container;
+  private piecesContainer!: Container;
+  private effectsContainer!: Container;
+  private cellSize = 0;
+  private boardPixelSize = 0;
+  private offsetX = 0;
+  private offsetY = 0;
   private theme: Theme;
   private state: GameState | null = null;
   private onCellClick?: (pos: Position) => void;
   private hoveredCell: Position | null = null;
-  private highlightedCells: Position[] = [];
   private boardGraphics: Graphics | null = null;
   private pieceSprites: Map<string, Container> = new Map();
+  private initialized = false;
+  private pendingState: GameState | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private container: HTMLElement | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
-
-    this.app = new Application();
-    this.boardContainer = new Container();
-    this.piecesContainer = new Container();
-    this.effectsContainer = new Container();
-    this.overlayContainer = new Container();
-
-    this.app.stage.addChild(this.boardContainer);
-    this.app.stage.addChild(this.effectsContainer);
-    this.app.stage.addChild(this.piecesContainer);
-    this.app.stage.addChild(this.overlayContainer);
   }
 
-  async init(canvas: HTMLCanvasElement): Promise<void> {
+  async init(container: HTMLElement): Promise<void> {
+    this.container = container;
+    this.app = new Application();
+
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 600;
+
     await this.app.init({
-      canvas,
       background: this.theme.background.primary,
       antialias: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: true,
+      width,
+      height,
     });
 
-    this.app.ticker.add(() => this.updateEffects());
+    // Build layer tree
+    this.boardContainer = new Container();
+    this.piecesContainer = new Container();
+    this.effectsContainer = new Container();
+
+    this.app.stage.addChild(this.boardContainer);
+    this.app.stage.addChild(this.effectsContainer);
+    this.app.stage.addChild(this.piecesContainer);
+
+    // Append canvas to the container
+    container.appendChild(this.app.canvas as HTMLCanvasElement);
+
+    // Interaction
     this.setupInteraction();
-    window.addEventListener('resize', () => this.handleResize());
+
+    // Animation ticker
+    this.app.ticker.add(() => this.updateEffects());
+
+    // Manual resize observer (avoid PixiJS v8.18 internal _cancelResize bug)
+    this.resizeObserver = new ResizeObserver(() => this.handleResize());
+    this.resizeObserver.observe(container);
+
+    this.initialized = true;
+
+    // Apply any pending state
+    if (this.pendingState) {
+      this.setState(this.pendingState);
+      this.pendingState = null;
+    }
+
+    // Initial size calculation and render
+    this.handleResize();
   }
 
   setTheme(theme: Theme): void {
     this.theme = theme;
-    if (this.app) {
-      this.app.renderer.background.color = theme.background.primary;
+    if (this.initialized) {
+      this.app.renderer.background = theme.background.primary;
+      this.redraw();
     }
-    this.redraw();
   }
 
   setState(state: GameState): void {
+    if (!this.initialized) {
+      this.pendingState = state;
+      return;
+    }
     this.state = state;
+    this.recalcSize();
     this.redraw();
   }
 
@@ -67,8 +99,42 @@ export class GameCanvas {
     this.onCellClick = cb;
   }
 
-  resize(width: number, height: number): void {
+  destroy(): void {
+    this.initialized = false;
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    try {
+      this.app.destroy(true);
+    } catch {
+      // PixiJS v8.18 internal _cancelResize missing during destroy
+    }
+  }
+
+  private handleResize(): void {
+    if (!this.initialized || !this.container) return;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (w === 0 || h === 0) return;
+
+    this.app.renderer.resize(w, h);
+    this.recalcSize();
+    this.redraw();
+  }
+
+  // --- Size ---
+
+  private recalcSize(): void {
     if (!this.state) return;
+    const canvas = this.app.canvas as HTMLCanvasElement;
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    const width = parent.clientWidth;
+    const height = parent.clientHeight;
+    if (width === 0 || height === 0) return;
+
     const size = this.state.boardSize;
     const padding = 40;
     const maxCellW = (width - padding * 2) / size;
@@ -77,39 +143,12 @@ export class GameCanvas {
     this.boardPixelSize = this.cellSize * size;
     this.offsetX = Math.floor((width - this.boardPixelSize) / 2);
     this.offsetY = Math.floor((height - this.boardPixelSize) / 2);
-
-    this.app.renderer.resize(width, height);
-    this.redraw();
-  }
-
-  private handleResize(): void {
-    const canvas = this.app.canvas as HTMLCanvasElement;
-    const parent = canvas.parentElement;
-    if (parent) {
-      this.resize(parent.clientWidth, parent.clientHeight);
-    }
-  }
-
-  getBoardPixelSize(): number {
-    return this.boardPixelSize;
-  }
-
-  getOffset(): { x: number; y: number } {
-    return { x: this.offsetX, y: this.offsetY };
-  }
-
-  getCellSize(): number {
-    return this.cellSize;
-  }
-
-  destroy(): void {
-    this.app.destroy(true);
   }
 
   // --- Drawing ---
 
   redraw(): void {
-    if (!this.state || this.cellSize === 0) return;
+    if (!this.initialized || !this.state || this.cellSize === 0) return;
     this.drawBoard();
     this.drawBurnedCells();
     this.drawHighlights();
@@ -119,53 +158,51 @@ export class GameCanvas {
   private drawBoard(): void {
     if (this.boardGraphics) {
       this.boardContainer.removeChild(this.boardGraphics);
-      this.boardGraphics.destroy();
+      this.boardGraphics.destroy({ children: true });
+      this.boardGraphics = null;
     }
 
     const g = new Graphics();
-    const { size } = { size: this.state!.boardSize };
+    const size = this.state!.boardSize;
     const cs = this.cellSize;
 
-    // Draw border glow
-    g.rect(this.offsetX - 3, this.offsetY - 3, this.boardPixelSize + 6, this.boardPixelSize + 6);
-    g.fill({ color: this.theme.board.border, alpha: 0.3 });
-    g.stroke({ color: this.theme.board.border, width: 2, alpha: 0.8 });
+    // Outer border glow
+    g.rect(this.offsetX - 4, this.offsetY - 4, this.boardPixelSize + 8, this.boardPixelSize + 8);
+    g.fill({ color: this.theme.background.secondary, alpha: 0.8 });
+    g.stroke({ color: this.theme.board.border, width: 3, alpha: 0.6 });
 
-    // Draw cells
+    // Inner shadow ring
+    g.rect(this.offsetX - 1, this.offsetY - 1, this.boardPixelSize + 2, this.boardPixelSize + 2);
+    g.stroke({ color: 0x000000, width: 1, alpha: 0.3 });
+
+    // Cells
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         const x = this.offsetX + c * cs;
         const y = this.offsetY + r * cs;
         const isLight = (r + c) % 2 === 0;
-        const color = isLight ? this.theme.board.light : this.theme.board.dark;
+        const baseColor = isLight ? this.theme.board.light : this.theme.board.dark;
 
         g.rect(x, y, cs, cs);
-        g.fill({ color });
+        g.fill({ color: baseColor });
+
+        // Subtle inner line for cell definition
+        g.rect(x + 0.5, y + 0.5, cs - 1, cs - 1);
+        g.stroke({ color: isLight ? this.theme.board.dark : this.theme.board.light, width: 0.5, alpha: 0.08 });
       }
     }
 
-    // Draw coordinate labels
-    const labelStyle = {
-      fontSize: Math.max(10, cs * 0.18),
-      fill: this.theme.board.dark,
-      fontFamily: 'monospace',
-    };
+    // Coordinate labels
+    const fontSize = Math.max(10, cs * 0.16);
+    const labelStyle = { fontSize, fill: this.theme.board.border, fontFamily: 'monospace' };
 
     for (let i = 0; i < size; i++) {
-      // Column labels
-      const colLabel = new Text({
-        text: String.fromCharCode(65 + i),
-        style: labelStyle,
-      });
+      const colLabel = new Text({ text: String.fromCharCode(65 + i), style: labelStyle });
       colLabel.x = this.offsetX + i * cs + cs / 2 - colLabel.width / 2;
       colLabel.y = this.offsetY - colLabel.height - 4;
       g.addChild(colLabel);
 
-      // Row labels
-      const rowLabel = new Text({
-        text: String(size - i),
-        style: labelStyle,
-      });
+      const rowLabel = new Text({ text: String(size - i), style: labelStyle });
       rowLabel.x = this.offsetX - rowLabel.width - 6;
       rowLabel.y = this.offsetY + i * cs + cs / 2 - rowLabel.height / 2;
       g.addChild(rowLabel);
@@ -176,21 +213,17 @@ export class GameCanvas {
   }
 
   private drawBurnedCells(): void {
-    // Burned cells are drawn as part of the board background with special styling
-    if (!this.state) return;
+    if (!this.state || !this.boardGraphics) return;
     const g = this.boardGraphics;
-    if (!g) return;
+    const cs = this.cellSize;
 
     for (const burned of this.state.burnedCells) {
-      const x = this.offsetX + burned.col * this.cellSize;
-      const y = this.offsetY + burned.row * this.cellSize;
-      const cs = this.cellSize;
+      const x = this.offsetX + burned.col * cs;
+      const y = this.offsetY + burned.row * cs;
 
-      // Burned overlay
       g.rect(x + cs * 0.1, y + cs * 0.1, cs * 0.8, cs * 0.8);
-      g.fill({ color: this.theme.effects.burn, alpha: 0.25 });
+      g.fill({ color: this.theme.effects.burn, alpha: 0.3 });
 
-      // Burn mark (X pattern)
       g.moveTo(x + cs * 0.25, y + cs * 0.25);
       g.lineTo(x + cs * 0.75, y + cs * 0.75);
       g.stroke({ color: this.theme.effects.burn, width: 2, alpha: 0.5 });
@@ -202,37 +235,45 @@ export class GameCanvas {
   }
 
   private drawHighlights(): void {
-    if (!this.state) return;
+    if (!this.state || !this.boardGraphics) return;
     const g = this.boardGraphics;
-    if (!g) return;
 
-    // Highlight selected amazon
-    if (this.state.selectedAmazonId) {
+    // Show all legal move targets when a piece is selected
+    if (this.state.step === 'move' && this.state.selectedAmazonId) {
       const amazon = this.state.amazons.find(a => a.id === this.state.selectedAmazonId);
       if (amazon) {
         this.drawCellHighlight(g, amazon.position, this.theme.board.highlight, 0.6);
+
+        const legal = this.getLegalMoves();
+        for (const pos of legal) {
+          this.drawCellDot(g, pos, 0x88ff88, 0.45);
+        }
       }
     }
 
-    // Highlight hovered cell
+    // Show all legal shot targets during shoot phase
+    if (this.state.step === 'shoot' && this.state.pendingMoveTo) {
+      this.drawCellHighlight(g, this.state.pendingMoveTo, 0x44ff44, 0.35);
+
+      const legal = this.getLegalShots();
+      for (const pos of legal) {
+        this.drawCellDot(g, pos, this.theme.board.shotHighlight, 0.45);
+      }
+    }
+
+    // Hovered cell gets brighter highlight
     if (this.hoveredCell) {
       if (this.state.step === 'move' && this.state.selectedAmazonId) {
-        // Check if hovered cell is a legal move
         const legal = this.getLegalMoves();
         if (legal.some(p => posEqual(p, this.hoveredCell!))) {
-          this.drawCellHighlight(g, this.hoveredCell, 0x88ff88, 0.4);
+          this.drawCellHighlight(g, this.hoveredCell, 0x88ff88, 0.55);
         }
       } else if (this.state.step === 'shoot') {
         const legal = this.getLegalShots();
         if (legal.some(p => posEqual(p, this.hoveredCell!))) {
-          this.drawCellHighlight(g, this.hoveredCell, this.theme.board.shotHighlight, 0.4);
+          this.drawCellHighlight(g, this.hoveredCell, this.theme.board.shotHighlight, 0.55);
         }
       }
-    }
-
-    // Highlight pending move position during shoot phase
-    if (this.state.step === 'shoot' && this.state.pendingMoveTo) {
-      this.drawCellHighlight(g, this.state.pendingMoveTo, 0x44ff44, 0.3);
     }
   }
 
@@ -244,9 +285,18 @@ export class GameCanvas {
     g.fill({ color, alpha });
   }
 
+  private drawCellDot(g: Graphics, pos: Position, color: number, alpha: number): void {
+    const x = this.offsetX + pos.col * this.cellSize + this.cellSize / 2;
+    const y = this.offsetY + pos.row * this.cellSize + this.cellSize / 2;
+    const r = Math.max(4, this.cellSize * 0.12);
+    g.circle(x, y, r);
+    g.fill({ color, alpha });
+    g.circle(x, y, r);
+    g.stroke({ color, width: 1, alpha: alpha + 0.15 });
+  }
+
   private drawPieces(): void {
-    // Clear existing pieces
-    for (const [_, sprite] of this.pieceSprites) {
+    for (const [, sprite] of this.pieceSprites) {
       this.piecesContainer.removeChild(sprite);
       sprite.destroy({ children: true });
     }
@@ -260,15 +310,7 @@ export class GameCanvas {
       this.pieceSprites.set(amazon.id, container);
     }
 
-    // Draw pending move ghost
-    if (this.state.step === 'shoot' && this.state.selectedAmazonId && this.state.pendingMoveTo) {
-      const amazon = this.state.amazons.find(a => a.id === this.state.selectedAmazonId);
-      if (amazon) {
-        this.drawMoveArrow(amazon.position, this.state.pendingMoveTo);
-      }
-    }
-
-    // Draw last move arrow
+    // Last move arrow
     if (this.state.moveHistory.length > 0) {
       const lastMove = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(lastMove.from, lastMove.to);
@@ -276,7 +318,7 @@ export class GameCanvas {
     }
   }
 
-  private createPieceSprite(amazon: Amazon): Container {
+  private createPieceSprite(amazon: { id: string; player: 'white' | 'black'; position: Position }): Container {
     const container = new Container();
     const cs = this.cellSize;
     const cx = this.offsetX + amazon.position.col * cs + cs / 2;
@@ -287,52 +329,50 @@ export class GameCanvas {
     const fillColor = isWhite ? this.theme.pieces.white : this.theme.pieces.black;
     const glowColor = isWhite ? this.theme.pieces.whiteGlow : this.theme.pieces.blackGlow;
 
-    // Glow effect (outer ring)
+    // Outer glow
     const glow = new Graphics();
     glow.circle(0, 0, radius + 3);
-    glow.fill({ color: glowColor, alpha: 0.4 });
+    glow.fill({ color: glowColor, alpha: 0.35 });
 
-    // Main piece
-    const piece = new Graphics();
-    piece.circle(0, 0, radius);
-    piece.fill({ color: fillColor });
+    // Main body
+    const body = new Graphics();
+    body.circle(0, 0, radius);
+    body.fill({ color: fillColor });
 
-    // Inner detail ring
+    // Inner detail
     const inner = new Graphics();
-    inner.circle(0, 0, radius * 0.6);
-    inner.fill({ color: glowColor, alpha: 0.3 });
+    inner.circle(0, 0, radius * 0.55);
+    inner.fill({ color: glowColor, alpha: 0.25 });
 
-    // Crown shape (upper detail)
+    // Crown
     const crown = new Graphics();
-    const crownSize = radius * 0.5;
-    crown.moveTo(-crownSize, crownSize * 0.3);
-    crown.lineTo(-crownSize * 0.7, -crownSize * 0.5);
-    crown.lineTo(-crownSize * 0.3, crownSize * 0.1);
-    crown.lineTo(0, -crownSize * 0.8);
-    crown.lineTo(crownSize * 0.3, crownSize * 0.1);
-    crown.lineTo(crownSize * 0.7, -crownSize * 0.5);
-    crown.lineTo(crownSize, crownSize * 0.3);
+    const s = radius * 0.45;
+    crown.moveTo(-s, s * 0.3);
+    crown.lineTo(-s * 0.7, -s * 0.5);
+    crown.lineTo(-s * 0.3, s * 0.1);
+    crown.lineTo(0, -s * 0.8);
+    crown.lineTo(s * 0.3, s * 0.1);
+    crown.lineTo(s * 0.7, -s * 0.5);
+    crown.lineTo(s, s * 0.3);
     crown.closePath();
-    crown.fill({ color: glowColor, alpha: 0.6 });
+    crown.fill({ color: glowColor, alpha: 0.5 });
 
-    // Selected indicator
-    const isSelected = this.state?.selectedAmazonId === amazon.id;
-    if (isSelected) {
-      const selectRing = new Graphics();
-      selectRing.circle(0, 0, radius + 6);
-      selectRing.stroke({ color: 0x4ecdc4, width: 3, alpha: 0.9 });
-      container.addChild(selectRing);
+    // Selection ring
+    if (this.state?.selectedAmazonId === amazon.id) {
+      const ring = new Graphics();
+      ring.circle(0, 0, radius + 5);
+      ring.stroke({ color: 0x4ecdc4, width: 3, alpha: 0.85 });
+      container.addChild(ring);
     }
 
     container.addChild(glow);
-    container.addChild(piece);
+    container.addChild(body);
     container.addChild(inner);
     container.addChild(crown);
 
     container.x = cx;
     container.y = cy;
 
-    // Pulsating glow for current player's amazons
     if (this.state && amazon.player === this.state.currentPlayer) {
       (container as any)._pulsePhase = Math.random() * Math.PI * 2;
     }
@@ -343,111 +383,84 @@ export class GameCanvas {
   private drawMoveArrow(from: Position, to: Position): void {
     const g = new Graphics();
     const cs = this.cellSize;
-    const fcx = this.offsetX + from.col * cs + cs / 2;
-    const fcy = this.offsetY + from.row * cs + cs / 2;
-    const tcx = this.offsetX + to.col * cs + cs / 2;
-    const tcy = this.offsetY + to.row * cs + cs / 2;
+    const fx = this.offsetX + from.col * cs + cs / 2;
+    const fy = this.offsetY + from.row * cs + cs / 2;
+    const tx = this.offsetX + to.col * cs + cs / 2;
+    const ty = this.offsetY + to.row * cs + cs / 2;
 
-    // Dashed line effect
-    const dx = tcx - fcx;
-    const dy = tcy - fcy;
+    const dx = tx - fx, dy = ty - fy;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.floor(dist / 8);
-
+    const steps = Math.max(Math.floor(dist / 8), 2);
     for (let i = 0; i < steps; i += 2) {
-      const t1 = i / steps;
-      const t2 = Math.min((i + 1) / steps, 1);
-      g.moveTo(fcx + dx * t1, fcy + dy * t1);
-      g.lineTo(fcx + dx * t2, fcy + dy * t2);
+      const t1 = i / steps, t2 = Math.min((i + 1) / steps, 1);
+      g.moveTo(fx + dx * t1, fy + dy * t1);
+      g.lineTo(fx + dx * t2, fy + dy * t2);
     }
-    g.stroke({ color: this.theme.effects.arrowTrail, width: 2, alpha: 0.6 });
-    this.effectsContainer.addChild(g);
+    g.stroke({ color: this.theme.effects.arrowTrail, width: 2, alpha: 0.55 });
 
-    // Auto-remove after short delay
-    setTimeout(() => {
-      this.effectsContainer.removeChild(g);
-      g.destroy();
-    }, 2000);
+    this.effectsContainer.addChild(g);
+    setTimeout(() => { this.effectsContainer.removeChild(g); g.destroy(); }, 2000);
   }
 
   private drawShotArrow(from: Position, to: Position): void {
     const g = new Graphics();
     const cs = this.cellSize;
-    const fcx = this.offsetX + from.col * cs + cs / 2;
-    const fcy = this.offsetY + from.row * cs + cs / 2;
-    const tcx = this.offsetX + to.col * cs + cs / 2;
-    const tcy = this.offsetY + to.row * cs + cs / 2;
+    const fx = this.offsetX + from.col * cs + cs / 2;
+    const fy = this.offsetY + from.row * cs + cs / 2;
+    const tx = this.offsetX + to.col * cs + cs / 2;
+    const ty = this.offsetY + to.row * cs + cs / 2;
 
-    // Red dashed line
-    const dx = tcx - fcx;
-    const dy = tcy - fcy;
+    const dx = tx - fx, dy = ty - fy;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.floor(dist / 6);
-
+    const steps = Math.max(Math.floor(dist / 6), 2);
     for (let i = 0; i < steps; i += 2) {
-      const t1 = i / steps;
-      const t2 = Math.min((i + 1) / steps, 1);
-      g.moveTo(fcx + dx * t1, fcy + dy * t1);
-      g.lineTo(fcx + dx * t2, fcy + dy * t2);
+      const t1 = i / steps, t2 = Math.min((i + 1) / steps, 1);
+      g.moveTo(fx + dx * t1, fy + dy * t1);
+      g.lineTo(fx + dx * t2, fy + dy * t2);
     }
-    g.stroke({ color: this.theme.effects.arrow, width: 2.5, alpha: 0.7 });
+    g.stroke({ color: this.theme.effects.arrow, width: 2.5, alpha: 0.65 });
 
-    // Arrow head
     const angle = Math.atan2(dy, dx);
-    const headLen = 8;
-    const headAngle = Math.PI / 5;
-    g.moveTo(tcx, tcy);
-    g.lineTo(
-      tcx - headLen * Math.cos(angle - headAngle),
-      tcy - headLen * Math.sin(angle - headAngle),
-    );
-    g.moveTo(tcx, tcy);
-    g.lineTo(
-      tcx - headLen * Math.cos(angle + headAngle),
-      tcy - headLen * Math.sin(angle + headAngle),
-    );
-    g.stroke({ color: this.theme.effects.arrow, width: 2, alpha: 0.9 });
+    const hl = 8, ha = Math.PI / 5;
+    g.moveTo(tx, ty);
+    g.lineTo(tx - hl * Math.cos(angle - ha), ty - hl * Math.sin(angle - ha));
+    g.moveTo(tx, ty);
+    g.lineTo(tx - hl * Math.cos(angle + ha), ty - hl * Math.sin(angle + ha));
+    g.stroke({ color: this.theme.effects.arrow, width: 2, alpha: 0.85 });
 
     this.effectsContainer.addChild(g);
-
-    setTimeout(() => {
-      this.effectsContainer.removeChild(g);
-      g.destroy();
-    }, 2000);
+    setTimeout(() => { this.effectsContainer.removeChild(g); g.destroy(); }, 2000);
   }
 
   // --- Interaction ---
 
   private setupInteraction(): void {
     const canvas = this.app.canvas as HTMLCanvasElement;
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.cursor = 'pointer';
 
     canvas.addEventListener('click', (e: MouseEvent) => {
       const pos = this.eventToPos(e);
-      if (pos && this.onCellClick) {
-        this.onCellClick(pos);
-      }
+      if (pos && this.onCellClick) this.onCellClick(pos);
     });
 
     canvas.addEventListener('mousemove', (e: MouseEvent) => {
-      const pos = this.eventToPos(e);
-      this.hoveredCell = pos;
-      if (this.state) this.redraw();
+      this.hoveredCell = this.eventToPos(e);
+      if (this.initialized) this.redraw();
     });
 
     canvas.addEventListener('mouseleave', () => {
       this.hoveredCell = null;
-      if (this.state) this.redraw();
+      if (this.initialized) this.redraw();
     });
 
-    // Touch support
     canvas.addEventListener('touchstart', (e: TouchEvent) => {
       e.preventDefault();
-      const touch = e.touches[0];
-      const pos = this.eventToPos(touch);
-      if (pos && this.onCellClick) {
-        this.onCellClick(pos);
-      }
-    });
+      const pos = this.eventToPos(e.touches[0]);
+      if (pos && this.onCellClick) this.onCellClick(pos);
+    }, { passive: false });
   }
 
   private eventToPos(e: { clientX: number; clientY: number }): Position | null {
@@ -458,15 +471,12 @@ export class GameCanvas {
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     const col = Math.floor((x - this.offsetX) / this.cellSize);
     const row = Math.floor((y - this.offsetY) / this.cellSize);
-
-    if (row < 0 || row >= this.state.boardSize || col < 0 || col >= this.state.boardSize) {
-      return null;
-    }
+    if (row < 0 || row >= this.state.boardSize || col < 0 || col >= this.state.boardSize) return null;
     return { row, col };
   }
 
   private getLegalMoves(): Position[] {
-    if (!this.state || !this.state.selectedAmazonId) return [];
+    if (!this.state?.selectedAmazonId) return [];
     const amazon = this.state.amazons.find(a => a.id === this.state.selectedAmazonId);
     if (!amazon) return [];
     const blocked = buildBlockedSet(this.state.amazons, this.state.burnedCells);
@@ -474,10 +484,10 @@ export class GameCanvas {
   }
 
   private getLegalShots(): Position[] {
-    if (!this.state || !this.state.pendingMoveTo) return [];
+    if (!this.state?.pendingMoveTo) return [];
     const tempAmazons = this.state.amazons.map(a =>
       a.id === this.state.selectedAmazonId
-        ? { ...a, position: { ...this.state!.pendingMoveTo! } }
+        ? { ...a, position: { ...this.state.pendingMoveTo! } }
         : a,
     );
     const blocked = buildBlockedSet(tempAmazons, this.state.burnedCells);
@@ -488,17 +498,16 @@ export class GameCanvas {
 
   private updateEffects(): void {
     const now = performance.now() / 1000;
-
     for (const [id, container] of this.pieceSprites) {
       const amazon = this.state?.amazons.find(a => a.id === id);
-      if (!amazon || !this.state) continue;
-
-      if (amazon.player === this.state.currentPlayer) {
-        const phase = ((container as any)._pulsePhase || 0);
-        const glowAlpha = 0.3 + Math.sin(now * 3 + phase) * 0.15;
-        const glowSprite = container.children[0] as Graphics;
-        if (glowSprite) {
-          glowSprite.alpha = glowAlpha;
+      if (!amazon) continue;
+      if (amazon.player === this.state?.currentPlayer) {
+        const phase = (container as any)._pulsePhase || 0;
+        const sprite = container.children[1] as Graphics; // body is child[1]
+        if (sprite?.alpha !== undefined) {
+          // Pulse the glow (child[0])
+          const glow = container.children[0] as Graphics;
+          if (glow) glow.alpha = 0.25 + Math.sin(now * 2.5 + phase) * 0.12;
         }
       }
     }
