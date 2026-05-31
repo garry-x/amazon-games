@@ -63,7 +63,7 @@ export function ResultDialog() {
             style={{ color: accent, borderColor: accent + '44', background: accent + '0d' }}>
             再来一局
           </button>
-          <button onClick={() => setShowSetup(true)}
+          <button onClick={() => { useGameStore.setState({ gameState: null }); setShowSetup(true); }}
             className="flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-200"
             style={{ color: '#111', background: accent, boxShadow: `0 0 24px ${accent}44` }}>
             返回主菜单
