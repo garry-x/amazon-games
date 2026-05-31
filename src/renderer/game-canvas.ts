@@ -47,6 +47,7 @@ interface MeteorAnim {
 
 export class GameCanvas {
   private app!: Application;
+  private bgContainer!: Container;
   private boardLayer!: Container;
   private boardTexLayer!: Container;
   private burnLayer!: Container;
@@ -77,6 +78,7 @@ export class GameCanvas {
   private pendingState: GameState | null = null;
   private resizeObs: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
+  private bgSprite: Sprite | null = null;
   private texturesLoaded = false;
   private pieceTexWhite: Texture | null = null;
   private pieceTexBlack: Texture | null = null;
@@ -214,16 +216,17 @@ export class GameCanvas {
   private loadThemeTextures(): void {
     const themeId = this.theme.id;
 
-    // Background texture — render via CSS for native resolution
-    const bgUrl = texURL(`/textures/${themeId}-bg.png`);
-    if (this.container) {
-      this.container.style.backgroundImage = `url(${bgUrl})`;
-      this.container.style.backgroundSize = 'cover';
-      this.container.style.backgroundPosition = 'center';
-      this.container.style.backgroundRepeat = 'no-repeat';
-      // Dark atmosphere overlay via CSS pseudo-element would need DOM changes,
-      // so keep it simple — darken via the root gradient in Layout.tsx
-    }
+    // Background texture — rendered in PixiJS below everything
+    this.bgContainer = new Container();
+    this.app.stage.addChildAt(this.bgContainer, 0); // insert at bottom
+    this.loadImage(texURL(`/textures/${themeId}-bg.png`), (img) => {
+      if (this.bgSprite) { this.bgContainer.removeChild(this.bgSprite); this.bgSprite.destroy(); }
+      const tex = Texture.from(img);
+      this.bgSprite = new Sprite(tex);
+      this.bgSprite.alpha = 0.55;
+      this.bgContainer.addChild(this.bgSprite);
+      this.fitBackground();
+    });
 
     // Board texture
     this.loadImage(texURL(`/textures/${themeId}-board.png`), (img) => {
@@ -319,6 +322,22 @@ export class GameCanvas {
     img.src = url;
   }
 
+  /** Scale background to fill viewport using renderer dimensions */
+  private fitBackground(): void {
+    if (!this.bgSprite || !this.app?.renderer) return;
+    const rw = this.app.renderer.width;
+    const rh = this.app.renderer.height;
+    if (rw === 0 || rh === 0) return;
+    const tw = this.bgSprite.texture.width;
+    const th = this.bgSprite.texture.height;
+    if (tw === 0 || th === 0) return;
+    const scale = Math.max(rw / tw, rh / th);
+    this.bgSprite.width = Math.round(tw * scale);
+    this.bgSprite.height = Math.round(th * scale);
+    this.bgSprite.x = Math.round((rw - this.bgSprite.width) / 2);
+    this.bgSprite.y = Math.round((rh - this.bgSprite.height) / 2);
+  }
+
   private positionBoardTexture(): void {
     if (!this.boardTexSprite || this.cellSize === 0) return;
     const sprite = this.boardTexSprite;
@@ -342,6 +361,7 @@ export class GameCanvas {
     const h = this.container.clientHeight;
     if (w === 0 || h === 0) return;
     this.app.renderer.resize(w, h);
+    this.fitBackground();
     this.updateStageHitArea();
     this.recalcSize();
     this.redraw();
