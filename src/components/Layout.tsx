@@ -8,7 +8,6 @@ import { MoveHistory } from './MoveHistory';
 import { ThemePicker } from './ThemePicker';
 import { ResultDialog } from './ResultDialog';
 import { Tutorial } from './Tutorial';
-import { TextureGenerator } from './TextureGenerator';
 import { useState, useMemo } from 'react';
 import type { BoardSize, VariantConfig } from '../game/types';
 
@@ -31,7 +30,6 @@ export function Layout() {
 
   const isPlaying = gameState && gameState.phase !== 'finished';
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
-  const setBgImage = useUIStore(s => s.setBgImage);
   const bg1 = useMemo(() => '#' + theme.background.primary.toString(16).padStart(6, '0'), [theme]);
   const bg2 = useMemo(() => '#' + theme.background.secondary.toString(16).padStart(6, '0'), [theme]);
 
@@ -75,7 +73,6 @@ export function Layout() {
           <div className="flex items-center gap-2">
             <TopBtn onClick={() => setShowTutorial(true)}>📖 教程</TopBtn>
             <ThemePicker />
-            <TextureGenerator onBackgroundChange={setBgImage} />
             <TopBtn onClick={() => setShowHistory(!showHistory)}>
               {showHistory ? '隐藏记录' : '走棋记录'}
             </TopBtn>

@@ -245,25 +245,7 @@ cmd_generate() {
   echo ""
 
   cd "$ROOT"
-  node --input-type=module -e "
-    import { textureManager } from './src/comfyui/texture-manager.ts';
-    const themes = '$theme' === 'all'
-      ? ['egyptian','medieval','scifi','nature']
-      : ['$theme'];
-    const types = '$type' === 'all'
-      ? ['bg','board']
-      : ['$type'];
-
-    for (const t of themes) {
-      console.log('→ 生成 ' + t + '...');
-      await textureManager.generateForTheme(t, types, (p) => {
-        if (p.status === 'generating') process.stdout.write('.');
-        else if (p.status === 'done') console.log(' ✓');
-        else if (p.status === 'error') console.log(' ✗ ' + p.error);
-      });
-    }
-    console.log('完成');
-  " 2>&1
+  node scripts/generate-textures.mjs "$theme" "$type"
 }
 
 # ============================================================
