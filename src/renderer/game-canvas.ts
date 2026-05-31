@@ -47,7 +47,6 @@ interface MeteorAnim {
 
 export class GameCanvas {
   private app!: Application;
-  private bgLayer!: Container;
   private boardLayer!: Container;
   private boardTexLayer!: Container;
   private burnLayer!: Container;
@@ -78,8 +77,6 @@ export class GameCanvas {
   private pendingState: GameState | null = null;
   private resizeObs: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
-  private bgSprite: Sprite | null = null;
-  private bgOverlay: Graphics | null = null;
   private texturesLoaded = false;
   private pieceTexWhite: Texture | null = null;
   private pieceTexBlack: Texture | null = null;
@@ -119,17 +116,12 @@ export class GameCanvas {
     if (this.destroyed) return;
 
     // Layer ordering: bg → board-tex → board-gfx → burn → pieces → effects
-    this.bgLayer = new Container();
     this.boardTexLayer = new Container();
     this.boardLayer = new Container();
     this.burnLayer = new Container();
     this.pieceLayer = new Container();
     this.effectLayer = new Container();
 
-    this.app.stage.addChild(this.bgLayer);
-    // Dark overlay on top of background for atmosphere
-    this.bgOverlay = new Graphics();
-    this.app.stage.addChild(this.bgOverlay);
     this.app.stage.addChild(this.boardTexLayer);
     this.app.stage.addChild(this.boardLayer);
     this.app.stage.addChild(this.burnLayer);
@@ -222,13 +214,16 @@ export class GameCanvas {
   private loadThemeTextures(): void {
     const themeId = this.theme.id;
 
-    // Background texture
-    this.loadImage(texURL(`/textures/${themeId}-bg.png`), (img) => {
-      if (this.bgSprite) { this.bgLayer.removeChild(this.bgSprite); this.bgSprite.destroy(); }
-      this.bgSprite = new Sprite(Texture.from(img));
-      this.bgLayer.addChild(this.bgSprite);
-      this.positionBackground();
-    });
+    // Background texture — render via CSS for native resolution
+    const bgUrl = texURL(`/textures/${themeId}-bg.png`);
+    if (this.container) {
+      this.container.style.backgroundImage = `url(${bgUrl})`;
+      this.container.style.backgroundSize = 'cover';
+      this.container.style.backgroundPosition = 'center';
+      this.container.style.backgroundRepeat = 'no-repeat';
+      // Dark atmosphere overlay via CSS pseudo-element would need DOM changes,
+      // so keep it simple — darken via the root gradient in Layout.tsx
+    }
 
     // Board texture
     this.loadImage(texURL(`/textures/${themeId}-board.png`), (img) => {
@@ -324,29 +319,6 @@ export class GameCanvas {
     img.src = url;
   }
 
-  private positionBackground(): void {
-    if (!this.bgSprite || !this.container || !this.app?.renderer) return;
-    const w = this.container.clientWidth;
-    const h = this.container.clientHeight;
-    if (w === 0 || h === 0) return;
-    const tw = this.bgSprite.texture.width;
-    const th = this.bgSprite.texture.height;
-    // Cover the viewport while maintaining aspect ratio
-    const scale = Math.max(w / tw, h / th);
-    this.bgSprite.width = Math.round(tw * scale);
-    this.bgSprite.height = Math.round(th * scale);
-    this.bgSprite.x = Math.round((w - this.bgSprite.width) / 2);
-    this.bgSprite.y = Math.round((h - this.bgSprite.height) / 2);
-    // Full opacity — dark atmosphere via separate overlay
-    this.bgSprite.alpha = 1.0;
-    // Dark overlay for atmosphere (semi-transparent black)
-    if (this.bgOverlay) {
-      this.bgOverlay.clear();
-      this.bgOverlay.rect(0, 0, w, h);
-      this.bgOverlay.fill({ color: 0x000000, alpha: 0.35 });
-    }
-  }
-
   private positionBoardTexture(): void {
     if (!this.boardTexSprite || this.cellSize === 0) return;
     const sprite = this.boardTexSprite;
@@ -371,7 +343,6 @@ export class GameCanvas {
     if (w === 0 || h === 0) return;
     this.app.renderer.resize(w, h);
     this.updateStageHitArea();
-    this.positionBackground();
     this.recalcSize();
     this.redraw();
   }
