@@ -11,17 +11,23 @@ export function ResultDialog() {
 
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
   const winnerColor = useMemo(() => {
-    if (!gameState?.winner) return '#fff';
-    const w = gameState.winner;
-    return w === 'white'
+    if (!gameState?.winner) return accent;
+    return gameState.winner === 'white'
       ? '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0')
       : '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0');
-  }, [gameState, theme]);
+  }, [gameState, theme, accent]);
 
   if (!gameState || gameState.phase !== 'finished') return null;
 
-  const winner = gameState.winner;
-  const moves = gameState.moveHistory.length;
+  const { winner, moveHistory } = gameState;
+  const moves = moveHistory.length;
+  const isDraw = winner === null;
+
+  const title = isDraw ? '平局！' : `${winner === 'white' ? '白方' : '黑方'} 胜利！`;
+  const icon = isDraw ? '🤝' : '👑';
+  const reason = isDraw
+    ? '双方均无合法移动，握手言和'
+    : '对方已无合法移动，无力再战';
 
   return (
     <motion.div
@@ -38,16 +44,16 @@ export function ResultDialog() {
           boxShadow: `0 0 100px ${winnerColor}18, 0 20px 60px rgba(0,0,0,0.6)`,
         }}>
         <motion.div
-          initial={{ rotate: -30, scale: 0 }} animate={{ rotate: 0, scale: 1 }}
+          initial={{ rotate: isDraw ? 0 : -30, scale: 0 }} animate={{ rotate: 0, scale: 1 }}
           transition={{ delay: 0.2, type: 'spring', stiffness: 150 }}
-          className="text-7xl mb-5">👑</motion.div>
+          className="text-7xl mb-5">{icon}</motion.div>
 
         <motion.h2 className="text-4xl font-extrabold mb-3 tracking-tight"
-          style={{ color: winnerColor, textShadow: `0 0 30px ${winnerColor}44` }}>
-          {winner === 'white' ? '白方' : '黑方'} 胜利！
+          style={{ color: winnerColor, textShadow: `0 0 32px ${winnerColor}44` }}>
+          {title}
         </motion.h2>
         <p className="text-white/55 text-sm mb-8 leading-relaxed">
-          对方已无合法移动<br />
+          {reason}<br />
           <span className="text-white/35 text-xs">共 {moves} 步</span>
         </p>
 

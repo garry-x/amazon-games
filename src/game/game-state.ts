@@ -160,14 +160,65 @@ export function shootArrow(state: GameState, arrowTarget: Position): GameState |
     currentPlayer: opponent(state.currentPlayer),
   };
 
-  // 检查对手是否还有合法移动
-  const opponentPlayer = opponent(state.currentPlayer);
-  if (!hasAnyLegalMove(newState, opponentPlayer)) {
+  // 检查游戏是否结束
+  const result = checkGameEnd(newState);
+  if (result) {
     newState.phase = 'finished';
-    newState.winner = state.currentPlayer; // 当前玩家获胜
+    newState.winner = result;
   }
 
   return newState;
+}
+
+/**
+ * 检查当前局面是否已经结束。
+ * 返回 null = 继续，Player = 该玩家胜，null（独立调用时）= 平局
+ * 用于 shootArrow 后的判定：刚刚行动的玩家获胜条件是对手无法移动
+ */
+function checkGameEndAfterMove(state: GameState, movingPlayer: Player): Player | null {
+  const other = opponent(movingPlayer);
+  if (!hasAnyLegalMove(state, other)) {
+    // 对手无法移动 → 当前行动玩家胜
+    return movingPlayer;
+  }
+  // 检查自己是否也无法移动（虽然刚移动完，但理论上可能）
+  if (!hasAnyLegalMove(state, movingPlayer)) {
+    // 双方都无法移动 → 平局
+    return null;
+  }
+  return undefined as any; // 游戏继续
+}
+
+/**
+ * 检查当前局面：轮到 currentPlayer 时，他是否能行动。
+ * 用于回合开始前的检查。
+ * 返回 null = 继续，否则 = 胜者（null 表示平局）
+ */
+export function checkCurrentPlayerStuck(state: GameState): Player | null | undefined {
+  if (!hasAnyLegalMove(state, state.currentPlayer)) {
+    // 当前玩家无法移动
+    const other = opponent(state.currentPlayer);
+    if (!hasAnyLegalMove(state, other)) {
+      // 双方都无法移动 → 平局
+      return null;
+    }
+    // 只有当前玩家无法移动 → 对手胜
+    return other;
+  }
+  return undefined; // 游戏继续
+}
+
+/**
+ * 检查游戏是否已结束，返回胜者（null = 平局，undefined = 继续）
+ */
+export function checkGameEnd(state: GameState): Player | null | undefined {
+  const whiteCanMove = hasAnyLegalMove(state, 'white');
+  const blackCanMove = hasAnyLegalMove(state, 'black');
+
+  if (!whiteCanMove && !blackCanMove) return null;  // 平局
+  if (!whiteCanMove) return 'black';                 // 黑胜
+  if (!blackCanMove) return 'white';                 // 白胜
+  return undefined;                                   // 继续
 }
 
 /**
