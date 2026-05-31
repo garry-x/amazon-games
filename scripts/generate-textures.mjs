@@ -24,8 +24,16 @@ const PROMPTS = {
       negative: 'blurry, low quality, distorted, watermark, text, modern elements, people',
     },
     board: {
-      prompt: 'top-down view of an ornate ancient Egyptian game board made of gold-inlaid sandstone and deep lapis lazuli tiles arranged in a checkerboard grid pattern, hieroglyphic border decorations, warm golden light, marble texture, luxurious craftsmanship, 8k ultra detailed, tile texture, seamless pattern',
-      negative: 'blurry, perspective, 3d, shadows, people, low quality, modern, distorted',
+      prompt: 'top-down orthographic view of a complete ancient Egyptian game board, alternating light ivory alabaster and dark lapis lazuli square tiles in a 10x10 checkerboard grid, ornate gold hieroglyphic border frame around the edges, warm golden ambient light evenly distributed, luxurious temple floor, ultra detailed, seamless tileable texture, 8k',
+      negative: 'blurry, perspective angle, shadows, people, text, modern elements, 3d depth, distorted',
+    },
+    'tile-light': {
+      prompt: 'top-down view of a single square ivory alabaster stone tile with subtle golden veins, ancient Egyptian polished floor texture, warm sand color, smooth surface with micro details, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout lines, border, people, text, dark, 3d',
+    },
+    'tile-dark': {
+      prompt: 'top-down view of a single square deep lapis lazuli stone tile with subtle golden flecks, ancient Egyptian polished floor texture, rich blue-black color, smooth surface with micro details, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout lines, border, people, text, light, 3d',
     },
     'piece-white': {
       prompt: 'A fierce Amazon warrior queen miniature figurine, wearing white and gold Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, ivory skin tone, gold crown with lapis lazuli gems, flowing cape, dramatic studio lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on pure white background, 8k',
@@ -46,8 +54,16 @@ const PROMPTS = {
       negative: 'blurry, low quality, modern elements, people, text, watermark',
     },
     board: {
-      prompt: 'top-down view of a medieval game board made of rich oak and dark walnut wood inlay in square checkerboard pattern, wrought iron corner rivets, castle stone border edge, warm firelight glow, wood grain texture, handcrafted medieval craftsmanship, 8k ultra detailed, tile texture, seamless',
-      negative: 'blurry, perspective, 3d, shadows, modern, distorted, low quality',
+      prompt: 'top-down orthographic view of a complete medieval game board, alternating light oak and dark walnut square wood tiles in a 10x10 checkerboard grid, wrought iron border frame around the edges, warm firelight glow evenly distributed, castle great hall floor, ultra detailed, seamless tileable texture, 8k',
+      negative: 'blurry, perspective angle, shadows, people, text, modern elements, 3d depth, distorted',
+    },
+    'tile-light': {
+      prompt: 'top-down view of a single square light oak wood tile with fine grain texture, medieval polished floorboard, warm honey brown color, smooth surface with subtle wood rings, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout lines, border, people, text, dark, 3d',
+    },
+    'tile-dark': {
+      prompt: 'top-down view of a single square dark walnut wood tile with rich grain texture, medieval polished floorboard, deep chocolate brown color, smooth surface with subtle wood rings, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout lines, border, people, text, light, 3d',
     },
     'piece-white': {
       prompt: 'A fierce medieval Amazon archer miniature figurine, wearing polished silver chainmail armor with a white surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, fair skin, iron crown with emerald gem, red cape, dramatic firelight from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
@@ -68,8 +84,16 @@ const PROMPTS = {
       negative: 'blurry, low quality, people, text, watermark, daylight, natural',
     },
     board: {
-      prompt: 'top-down view of a holographic game grid floating above a brushed dark metal surface, glowing neon cyan grid lines in square checkerboard pattern, circuit trace decorations, chrome border edge, ambient blue glow, futuristic sci-fi aesthetic, 8k ultra detailed, tile texture, seamless',
-      negative: 'blurry, perspective, 3d, shadows, natural, wood, stone, low quality',
+      prompt: 'top-down orthographic view of a complete futuristic game board, alternating brushed titanium and dark carbon fiber square panels in a 10x10 checkerboard grid, glowing neon cyan grid lines, chrome border frame, ambient blue tech glow evenly distributed, spaceship floor, ultra detailed, seamless tileable texture, 8k',
+      negative: 'blurry, perspective angle, shadows, people, text, organic, wooden, 3d depth',
+    },
+    'tile-light': {
+      prompt: 'top-down view of a single square brushed titanium metal panel with subtle circuit trace texture, futuristic sci-fi floor, cool silver-gray color, smooth metallic surface with micro etching details, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout, border, people, text, warm, organic, 3d',
+    },
+    'tile-dark': {
+      prompt: 'top-down view of a single square dark carbon fiber panel with subtle hexagonal weave pattern, futuristic sci-fi floor, deep charcoal black color, matte surface with micro texture details, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout, border, people, text, bright, organic, 3d',
     },
     'piece-white': {
       prompt: 'A fierce cyberpunk Amazon sniper miniature figurine, wearing white and cyan high-tech combat armor with neon glow accents, holding a futuristic energy bow drawn ready to fire, dynamic combat stance, pale skin, holographic crown visor, sharp focus on the glowing energy arrow, product photography, centered, isolated on pure white background, 8k',
@@ -90,8 +114,16 @@ const PROMPTS = {
       negative: 'blurry, low quality, modern, buildings, people, text, watermark',
     },
     board: {
-      prompt: 'top-down view of a natural stone game board with carved stone tiles in checkerboard pattern, lush green moss growing between squares, vine border decorations, dappled forest sunlight, organic natural texture, elven forest craftsmanship, 8k ultra detailed, tile texture, seamless',
-      negative: 'blurry, perspective, 3d, shadows, modern, metal, plastic, low quality',
+      prompt: 'top-down orthographic view of a complete nature-themed game board, alternating light mossy limestone and dark slate square tiles in a 10x10 checkerboard grid, living vine border frame with small leaves around the edges, dappled forest sunlight evenly distributed, ancient forest floor, ultra detailed, seamless tileable texture, 8k',
+      negative: 'blurry, perspective angle, shadows, people, text, modern, metal, 3d depth',
+    },
+    'tile-light': {
+      prompt: 'top-down view of a single square light mossy limestone tile with subtle fossil texture, ancient forest floor, pale sage green-gray color, smooth weathered stone surface with tiny moss spots, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout, border, people, text, dark, modern, 3d',
+    },
+    'tile-dark': {
+      prompt: 'top-down view of a single square dark slate stone tile with subtle mineral flecks, ancient forest floor, deep charcoal green-gray color, smooth polished stone surface with micro crystal details, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, grout, border, people, text, bright, modern, 3d',
     },
     'piece-white': {
       prompt: 'A fierce elven Amazon ranger miniature figurine, wearing white and green leaf-armor with delicate vine patterns, holding a drawn elegant elven longbow ready to shoot, dynamic archer stance, fair skin with elf ears, crown of woven white flowers, emerald cape, dramatic golden sunlight from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
@@ -114,6 +146,8 @@ const SIZES = {
   'piece-white': { width: 1024, height: 1024 },
   'piece-black': { width: 1024, height: 1024 },
   burn: { width: 1024, height: 1024 },
+  'tile-light': { width: 1024, height: 1024 },
+  'tile-dark': { width: 1024, height: 1024 },
 };
 
 // ── ComfyUI API helpers ──────────────────────────────────────
@@ -220,9 +254,10 @@ async function main() {
 
   const themes = themeArg === 'all' ? Object.keys(PROMPTS) : [themeArg];
   const typeMap = {
-    all: ['bg', 'board', 'piece-white', 'piece-black', 'burn'],
+    all: ['bg', 'board', 'tile-light', 'tile-dark', 'piece-white', 'piece-black', 'burn'],
     bg: ['bg'],
-    board: ['board'],
+    board: ['board', 'tile-light', 'tile-dark'],
+    tile: ['tile-light', 'tile-dark'],
     piece: ['piece-white', 'piece-black'],
     burn: ['burn'],
     'piece-white': ['piece-white'],

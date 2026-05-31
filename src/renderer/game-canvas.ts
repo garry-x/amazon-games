@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix } from 'pixi.js';
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
@@ -72,6 +72,8 @@ export class GameCanvas {
   private pieceTexWhite: Texture | null = null;
   private pieceTexBlack: Texture | null = null;
   private burnTex: Texture | null = null;
+  private tileLight: Texture | null = null;
+  private tileDark: Texture | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -217,6 +219,15 @@ export class GameCanvas {
       this.burnTex = Texture.from(img);
       this.redraw();
     });
+    // Tile textures
+    this.loadImage(`/textures/${themeId}-tile-light.png`, (img) => {
+      this.tileLight = Texture.from(img);
+      this.redraw();
+    });
+    this.loadImage(`/textures/${themeId}-tile-dark.png`, (img) => {
+      this.tileDark = Texture.from(img);
+      this.redraw();
+    });
   }
 
   private loadImage(url: string, onLoad: (img: HTMLImageElement) => void): void {
@@ -322,13 +333,22 @@ export class GameCanvas {
     g.fill({ color: this.theme.background.surface, alpha: this.boardTexSprite ? 0.65 : 0.9 });
     g.stroke({ color: this.theme.board.border, width: 2, alpha: 0.9 });
 
-    // — Cells (semi-transparent over board surface) —
+    // — Cells — use AI tile textures when available, fallback to solid colors
+    const hasTiles = !!(this.tileLight && this.tileDark);
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         const x = bx + c * cs, y = by + r * cs;
         const isLight = (r + c) % 2 === 0;
         g.rect(x, y, cs, cs);
-        g.fill({ color: isLight ? this.theme.board.light : this.theme.board.dark, alpha: 0.75 });
+        if (hasTiles) {
+          const tex = isLight ? this.tileLight! : this.tileDark!;
+          const m = new Matrix();
+          m.scale(cs / tex.width, cs / tex.height);
+          m.translate(x, y);
+          g.fill({ texture: tex, matrix: m });
+        } else {
+          g.fill({ color: isLight ? this.theme.board.light : this.theme.board.dark, alpha: 0.85 });
+        }
       }
     }
 
