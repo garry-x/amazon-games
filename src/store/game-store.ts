@@ -9,7 +9,7 @@ import { opponent, posEqual } from '../game/rules';
 import { classicVariant } from '../variants/classic';
 import { warlordVariant } from '../variants/warlord';
 import { siegeVariant } from '../variants/siege';
-import { getAIMove, getRandomMove, type AIDifficulty } from '../ai/engine';
+import { getAIMove, type AIDifficulty } from '../ai/engine';
 
 export const ALL_VARIANTS: VariantConfig[] = [
   classicVariant,
@@ -57,10 +57,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ gameState: state, variant });
 
-    // If AI is white, trigger first move after a brief delay
-    const { aiConfig } = get();
-    if (aiConfig.enabled && aiConfig.aiPlayer === 'white') {
-      setTimeout(() => get().triggerAIMove(), 500);
+    // If AI is white, trigger first move
+    if (get().aiConfig.enabled && get().aiConfig.aiPlayer === 'white') {
+      setTimeout(() => get().triggerAIMove(), 600);
     }
   },
 
@@ -113,10 +112,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const newState = shootArrow(gameState, pos);
       if (newState) {
         set({ gameState: newState });
-        // Check if next player is AI
-        const next = get().gameState;
+        // Check if next player is AI (use newState directly, not get())
         const cfg = get().aiConfig;
-        if (next && next.phase === 'playing' && cfg.enabled && cfg.aiPlayer === next.currentPlayer) {
+        if (newState.phase === 'playing' && cfg.enabled && cfg.aiPlayer === newState.currentPlayer) {
           setTimeout(() => get().triggerAIMove(), 400);
         }
       }
@@ -137,9 +135,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ aiThinking: true });
 
     try {
-      let move = await getAIMove(gameState, aiConfig.difficulty);
-      // Fallback to random if AI fails
-      if (!move) move = getRandomMove(gameState);
+      const move = await getAIMove(gameState, aiConfig.difficulty);
       if (!move) {
         // AI has no moves — forfeit
         set({

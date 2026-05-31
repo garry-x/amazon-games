@@ -113,6 +113,7 @@ async function requestMove(
   boardStr: string,
   difficulty: AIDifficulty,
   player: Player,
+  signal?: AbortSignal,
 ): Promise<string> {
   const system = buildSystemPrompt(difficulty, player);
   const userMsg = `Current board state (${player} to move):\n\n${boardStr}\n\nChoose the best move for ${player}. Reply with the MOVE: format only.`;
@@ -130,6 +131,7 @@ async function requestMove(
       temperature: difficultyTemp(difficulty),
       stop: ['</s>', '\n\n\n'],
     }),
+    signal,
   });
 
   if (!res.ok) throw new Error(`vLLM API error: ${res.status}`);
@@ -166,28 +168,34 @@ function isValidMove(state: GameState, move: AIMove): boolean {
 export async function getAIMove(
   state: GameState,
   difficulty: AIDifficulty,
-  maxRetries = 3,
+  maxRetries = 2,
+  timeoutMs = 25000,
 ): Promise<AIMove | null> {
   const boardStr = boardToString(state);
   const player = state.currentPlayer;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const text = await requestMove(boardStr, difficulty, player);
-      const move = parseAIResponse(text, state.boardSize);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+      const text = await requestMove(boardStr, difficulty, player, controller.signal);
+      clearTimeout(timer);
+
+      const move = parseAIResponse(text, state.boardSize);
       if (move && isValidMove(state, move)) {
         console.log(`AI (${difficulty}) move accepted on attempt ${attempt + 1}`);
         return move;
       }
-
-      console.warn(`AI move invalid, retry ${attempt + 1}/${maxRetries}:`, text.slice(0, 100));
-    } catch (err) {
-      console.error(`AI request failed (attempt ${attempt + 1}):`, err);
+      console.warn(`AI move invalid, retry ${attempt + 1}/${maxRetries}`);
+    } catch (err: any) {
+      console.error(`AI request failed (attempt ${attempt + 1}):`, err.message);
     }
   }
 
-  return null;
+  // Fallback: use random move
+  console.warn('AI falling back to random move');
+  return getRandomMove(state);
 }
 
 /** Fallback: pick a random valid move */
