@@ -105,7 +105,12 @@ cmd_stop() {
 # ============================================================
 cmd_restart() {
   cmd_stop 2>/dev/null || true
-  sleep 1
+  # Wait for port to be released
+  for i in $(seq 1 10); do
+    if ! ss -tlnp 2>/dev/null | grep -q ":${PORT} "; then break; fi
+    sleep 0.5
+  done
+  sleep 0.5
   cmd_start
 }
 
