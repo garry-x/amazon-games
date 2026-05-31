@@ -61,6 +61,8 @@ export class GameCanvas {
   private pieceSprites: Map<string, Container> = new Map();
   private shotAnims: ShotAnim[] = [];
   private shotGfx: Graphics | null = null;
+  private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
+  private fireGfx: Graphics | null = null;
   private lastRenderedMoveCount = 0;
   private initialized = false;
   private destroyed = false;
@@ -821,6 +823,69 @@ export class GameCanvas {
     }
   }
 
+  // ========== Fire particles on burned cells ==========
+
+  private renderFireParticles(dt: number): void {
+    if (!this.state || this.cellSize === 0) return;
+
+    const cs = this.cellSize;
+    const burnedSet = new Set(this.state.burnedCells.map(b => `${b.row},${b.col}`));
+
+    // Spawn new particles at each burned cell
+    for (const b of this.state.burnedCells) {
+      const key = `${b.row},${b.col}`;
+      const cx = this.ox + b.col * cs + cs / 2;
+      const cy = this.oy + b.row * cs + cs / 2;
+      // Limit particles per cell
+      const existing = this.fireParticles.filter(p => p.cellKey === key).length;
+      if (existing < 3 && Math.random() < 0.15) {
+        this.fireParticles.push({
+          x: cx + (Math.random() - 0.5) * cs * 0.5,
+          y: cy + cs * 0.15,
+          vx: (Math.random() - 0.5) * 15,
+          vy: -(20 + Math.random() * 40),
+          life: 0.6 + Math.random() * 0.8,
+          maxLife: 0.6 + Math.random() * 0.8,
+          size: 2 + Math.random() * 4,
+          cellKey: key,
+        });
+      }
+    }
+
+    // Clean up particles for cells that are no longer burned
+    this.fireParticles = this.fireParticles.filter(p => burnedSet.has(p.cellKey));
+
+    // Update and render
+    if (this.fireGfx) {
+      this.effectLayer.removeChild(this.fireGfx);
+      this.fireGfx.destroy();
+    }
+    if (this.fireParticles.length === 0) return;
+
+    const g = new Graphics();
+    for (const p of this.fireParticles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy -= 15 * dt; // slight upward acceleration
+      p.life -= dt;
+      if (p.life <= 0) continue;
+      const t = p.life / p.maxLife;
+      // Color transitions: yellow → orange → red → dark
+      const r = 1, gr = 0.5 + t * 0.5, bl = t < 0.5 ? 0 : (t - 0.5) * 2;
+      const color = (Math.floor(r * 255) << 16) | (Math.floor(gr * 200) << 8) | Math.floor(bl * 50);
+      g.circle(p.x, p.y, p.size * t);
+      g.fill({ color, alpha: t * 0.6 });
+      // Glow
+      g.circle(p.x, p.y, p.size * t * 2.5);
+      g.fill({ color, alpha: t * 0.1 });
+    }
+    // Remove dead particles
+    this.fireParticles = this.fireParticles.filter(p => p.life > 0);
+
+    this.fireGfx = g;
+    this.effectLayer.addChild(g);
+  }
+
   // ========== Interaction ==========
 
   /**
@@ -912,5 +977,6 @@ export class GameCanvas {
     // Render animated shot effects with deltaTime
     const dt = this.app.ticker.deltaMS / 1000;
     this.renderShotEffects(dt);
+    this.renderFireParticles(dt);
   }
 }
