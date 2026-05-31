@@ -138,41 +138,76 @@ export function GameSetup({ onStart }: Props) {
           </div>
         </div>
 
-        {/* AI — collapsible */}
-        <div className="rounded-xl border p-3"
-          style={{ borderColor: aiConfig.enabled ? a + '44' : 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={aiConfig.enabled}
-              onChange={e => setAIConfig({ enabled: e.target.checked })}
-              className="w-4 h-4 rounded accent-[#d4a017]" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: aiConfig.enabled ? a : 'rgba(255,255,255,0.5)' }}>
-              🤖 AI 对战
-            </span>
+        {/* AI opponent */}
+        <div className="rounded-xl border p-4"
+          style={{ borderColor: aiConfig.enabled ? a + '55' : 'rgba(255,255,255,0.07)', background: aiConfig.enabled ? a + '08' : 'rgba(255,255,255,0.02)' }}>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div className="relative">
+              <input type="checkbox" checked={aiConfig.enabled}
+                onChange={e => setAIConfig({ enabled: e.target.checked })}
+                className="sr-only" />
+              <div className="w-11 h-6 rounded-full transition-colors relative"
+                style={{ background: aiConfig.enabled ? a : 'rgba(255,255,255,0.12)' }}>
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                  style={{ transform: aiConfig.enabled ? 'translateX(20px)' : 'translateX(0)' }} />
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-bold" style={{ color: aiConfig.enabled ? a : 'rgba(255,255,255,0.6)' }}>
+                🤖 AI 对战
+              </div>
+              <div className="text-[11px] text-white/30">使用本地大模型 (Qwen 35B) 作为对手</div>
+            </div>
           </label>
+
           <AnimatePresence>
             {aiConfig.enabled && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden">
-                <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/5">
-                  <select value={aiConfig.aiPlayer}
-                    onChange={e => setAIConfig({ aiPlayer: e.target.value as 'white' | 'black' })}
-                    className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-white/70">
-                    <option value="black">AI 执黑（你执白先手）</option>
-                    <option value="white">AI 执白（你执黑后手）</option>
-                  </select>
-                  <div className="flex gap-1">
-                    {AI_LEVELS.map(lv => (
-                      <button key={lv.value} onClick={() => setAIConfig({ difficulty: lv.value })}
-                        className="px-2.5 py-1 rounded text-[11px] font-medium border transition-colors"
-                        style={{
-                          borderColor: aiConfig.difficulty === lv.value ? a : 'rgba(255,255,255,0.1)',
-                          color: aiConfig.difficulty === lv.value ? a : 'rgba(255,255,255,0.5)',
-                          background: aiConfig.difficulty === lv.value ? a + '10' : 'transparent',
-                        }}>
-                        {lv.label}
-                      </button>
-                    ))}
+                <div className="mt-4 pt-3 border-t border-white/5 space-y-3">
+                  {/* Side selection */}
+                  <div>
+                    <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">AI 执棋方</div>
+                    <div className="flex gap-2">
+                      {(['black', 'white'] as const).map(side => (
+                        <button key={side} onClick={() => setAIConfig({ aiPlayer: side })}
+                          className="flex-1 py-2 rounded-lg text-sm font-medium border transition-colors"
+                          style={{
+                            borderColor: aiConfig.aiPlayer === side ? a : 'rgba(255,255,255,0.1)',
+                            color: aiConfig.aiPlayer === side ? a : 'rgba(255,255,255,0.55)',
+                            background: aiConfig.aiPlayer === side ? a + '10' : 'rgba(255,255,255,0.02)',
+                          }}>
+                          {side === 'black' ? '⚫ AI 执黑' : '⚪ AI 执白'}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-white/25 mt-1">
+                      {aiConfig.aiPlayer === 'black' ? '你执白先手，AI 后手应对' : 'AI 执白先手，你执黑后手'}
+                    </p>
+                  </div>
+
+                  {/* Difficulty */}
+                  <div>
+                    <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">难度等级</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {AI_LEVELS.map(lv => {
+                        const sel = aiConfig.difficulty === lv.value;
+                        return (
+                          <button key={lv.value} onClick={() => setAIConfig({ difficulty: lv.value })}
+                            className="py-2.5 rounded-lg text-sm font-bold border-2 transition-all"
+                            style={{
+                              borderColor: sel ? a : 'rgba(255,255,255,0.08)',
+                              color: sel ? a : 'rgba(255,255,255,0.5)',
+                              background: sel ? a + '10' : 'rgba(255,255,255,0.02)',
+                              boxShadow: sel ? `0 0 16px ${a}22` : 'none',
+                            }}>
+                            <div>{lv.label}</div>
+                            <div className="text-[10px] font-normal mt-0.5 opacity-60">{lv.desc}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </motion.div>
