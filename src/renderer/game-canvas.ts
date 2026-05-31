@@ -1,8 +1,8 @@
 import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix, Assets } from 'pixi.js';
 
-/** Get texture URL */
+/** Convert .png reference to .webp */
 function texURL(path: string): string {
-  return path;
+  return path.replace('.png', '.webp');
 }
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
