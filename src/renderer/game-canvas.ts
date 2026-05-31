@@ -703,6 +703,12 @@ export class GameCanvas {
     const pColor = this.theme.effects.particle;
     const burnColor = this.theme.effects.burnGlow;
 
+    // Register crater fade-in IMMEDIATELY so drawBurns sees it (alpha=0 until impact+delay)
+    const cs = this.cellSize;
+    const col = Math.round((tx - this.ox) / cs);
+    const row = Math.round((ty - this.oy) / cs);
+    this.craterFadeIns.set(`${col},${row}`, 0);
+
     const particles: Particle[] = [];
     for (let i = 0; i < 100; i++) {
       const p = poolGet();
@@ -823,10 +829,7 @@ export class GameCanvas {
 
         if (t >= 1) {
           a.phase = 'impact'; a.elapsed = 0;
-          // Register crater for smooth fade-in after explosion peak
-          const col = Math.round((a.tx - this.ox) / cs);
-          const row = Math.round((a.ty - this.oy) / cs);
-          this.craterFadeIns.set(`${col},${row}`, 0);
+          // Crater fade-in already registered in startMeteorEffectAt
         }
       }
 
