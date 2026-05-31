@@ -723,37 +723,6 @@ export class GameCanvas {
     const ty = this.oy + to.row * cs + cs / 2;
     this.startMeteorEffectAt(tx, ty);
   }
-    const cs = this.cellSize;
-    const tx = this.ox + to.col * cs + cs / 2;
-    const ty = this.oy + to.row * cs + cs / 2;
-    const color = this.theme.effects.arrow;
-    const pColor = this.theme.effects.particle;
-    const burnColor = this.theme.effects.burnGlow;
-
-    // Pre-spawn 100 particles for the big explosion
-    const particles: Particle[] = [];
-    for (let i = 0; i < 100; i++) {
-      const p = poolGet();
-      p.x = tx; p.y = ty;
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 100 + Math.random() * 350;
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed - Math.random() * 100; // bias upward
-      p.life = 0; p.maxLife = 0.5 + Math.random() * 0.9;
-      p.color = i < 30 ? 0xffdd00 : (i < 55 ? color : (i < 75 ? pColor : burnColor));
-      p.size = 3 + Math.random() * 10;
-      particles.push(p);
-    }
-
-    this.meteorAnims.push({
-      tx, ty,
-      elapsed: 0,
-      fallDuration: 1.2,  // 1.2s fall — slow enough to see
-      color,
-      particles,
-      phase: 'fall',
-    });
-  }
 
   private renderMeteorEffects(dt: number): void {
     if (!this.meteorGfx) {
