@@ -755,13 +755,35 @@ export class GameCanvas {
     if (!this.app?.canvas) return;
     const canvas = this.app.canvas as HTMLCanvasElement;
     canvas.style.cursor = 'pointer';
-    canvas.style.touchAction = 'none'; // prevent scroll/zoom on touch
+    canvas.style.touchAction = 'none';
 
-    canvas.addEventListener('click', (e: MouseEvent) => {
+    // Use pointer events — unified mouse + touch, more reliable than click+touchstart
+    canvas.addEventListener('pointerdown', (e: PointerEvent) => {
+      e.preventDefault();
       const pos = this.eventToPos(e);
-      if (pos && this.onCellClick) this.onCellClick(pos);
+      if (pos && this.onCellClick) {
+        // Capture pointer to ensure we get the release
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+        this.onCellClick(pos);
+      }
     });
+
+    canvas.addEventListener('pointermove', (e: PointerEvent) => {
+      const next = this.eventToPos(e);
+      const changed = (this.hoveredCell === null) !== (next === null)
+        || (this.hoveredCell && next && !posEqual(this.hoveredCell, next));
+      this.hoveredCell = next;
+      if (changed && this.initialized) this.redraw();
+    });
+
+    canvas.addEventListener('pointerleave', () => {
+      this.hoveredCell = null;
+      if (this.initialized) this.redraw();
+    });
+
+    // Fallback: keep mouse-specific events for hover on desktop
     canvas.addEventListener('mousemove', (e: MouseEvent) => {
+      if (e.pointerType === 'touch') return; // already handled by pointermove
       const next = this.eventToPos(e);
       const changed = (this.hoveredCell === null) !== (next === null)
         || (this.hoveredCell && next && !posEqual(this.hoveredCell, next));
@@ -772,21 +794,19 @@ export class GameCanvas {
       this.hoveredCell = null;
       if (this.initialized) this.redraw();
     });
-    canvas.addEventListener('touchstart', (e: TouchEvent) => {
-      e.preventDefault();
-      const pos = this.eventToPos(e.touches[0]);
-      if (pos && this.onCellClick) this.onCellClick(pos);
-    }, { passive: false });
   }
 
   private eventToPos(e: { clientX: number; clientY: number }): Position | null {
     if (!this.state || this.cellSize === 0 || !this.app?.canvas) return null;
     const canvas = this.app.canvas as HTMLCanvasElement;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-    const col = Math.floor((x - this.ox) / this.cellSize);
-    const row = Math.floor((y - this.oy) / this.cellSize);
+    // Use ratio-based mapping (handles DPI / scaling correctly)
+    const rx = (e.clientX - rect.left) / rect.width;
+    const ry = (e.clientY - rect.top) / rect.height;
+    const px = rx * canvas.width;
+    const py = ry * canvas.height;
+    const col = Math.floor((px - this.ox) / this.cellSize);
+    const row = Math.floor((py - this.oy) / this.cellSize);
     if (row < 0 || row >= this.state.boardSize || col < 0 || col >= this.state.boardSize) return null;
     return { row, col };
   }
