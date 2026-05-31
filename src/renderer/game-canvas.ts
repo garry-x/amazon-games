@@ -167,6 +167,19 @@ export class GameCanvas {
 
   setState(state: GameState): void {
     if (!this.initialized || !this.app?.renderer) { this.pendingState = state; return; }
+
+    // Detect new burn: trigger meteor BEFORE redraw so crater is hidden during animation
+    if (this.state && state.moveHistory.length > this.state.moveHistory.length) {
+      const lastMove = state.moveHistory[state.moveHistory.length - 1];
+      if (lastMove && state.burnedCells.length > (this.state.burnedCells.length || 0)) {
+        // New cell was burned — start meteor immediately
+        const cs = this.cellSize;
+        const tx = this.ox + lastMove.arrow.col * cs + cs / 2;
+        const ty = this.oy + lastMove.arrow.row * cs + cs / 2;
+        this.startMeteorEffectAt(tx, ty);
+      }
+    }
+
     this.state = state;
     this.recalcSize();
     this.redraw();
@@ -581,7 +594,8 @@ export class GameCanvas {
     if (this.state.moveHistory.length > this.lastRenderedMoveCount) {
       const last = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(last.from, last.to);
-      this.startMeteorEffect(last.to, last.arrow);
+      // Meteor is now triggered from setState to ensure correct ordering
+      // (crater hiding needs the animation to be active BEFORE drawBurns runs)
       this.lastRenderedMoveCount = this.state.moveHistory.length;
     }
   }
@@ -677,7 +691,38 @@ export class GameCanvas {
 
   // ========== Meteor strike animation ==========
 
+  /** Trigger meteor at pixel coordinates (called from setState before redraw) */
+  private startMeteorEffectAt(tx: number, ty: number): void {
+    const color = this.theme.effects.arrow;
+    const pColor = this.theme.effects.particle;
+    const burnColor = this.theme.effects.burnGlow;
+
+    const particles: Particle[] = [];
+    for (let i = 0; i < 100; i++) {
+      const p = poolGet();
+      p.x = tx; p.y = ty;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 100 + Math.random() * 350;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed - Math.random() * 100;
+      p.life = 0; p.maxLife = 0.5 + Math.random() * 0.9;
+      p.color = i < 30 ? 0xffdd00 : (i < 55 ? color : (i < 75 ? pColor : burnColor));
+      p.size = 3 + Math.random() * 10;
+      particles.push(p);
+    }
+
+    this.meteorAnims.push({
+      tx, ty, elapsed: 0, fallDuration: 1.2, color, particles, phase: 'fall',
+    });
+  }
+
+  /** Legacy entry point for drawPieces compatibility */
   private startMeteorEffect(from: Position, to: Position): void {
+    const cs = this.cellSize;
+    const tx = this.ox + to.col * cs + cs / 2;
+    const ty = this.oy + to.row * cs + cs / 2;
+    this.startMeteorEffectAt(tx, ty);
+  }
     const cs = this.cellSize;
     const tx = this.ox + to.col * cs + cs / 2;
     const ty = this.oy + to.row * cs + cs / 2;
