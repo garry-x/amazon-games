@@ -43,6 +43,8 @@ export class GameCanvas {
   private container: HTMLElement | null = null;
   private bgSprite: Sprite | null = null;
   private texturesLoaded = false;
+  private pieceTexWhite: Texture | null = null;
+  private pieceTexBlack: Texture | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -155,34 +157,38 @@ export class GameCanvas {
 
     // Background texture
     const bgUrl = `/textures/${themeId}-bg.png`;
-    this.loadSprite(bgUrl, (sprite) => {
+    this.loadImage(bgUrl, (img) => {
       if (this.bgSprite) { this.bgLayer.removeChild(this.bgSprite); this.bgSprite.destroy(); }
-      this.bgSprite = sprite;
-      this.bgLayer.addChild(sprite);
+      this.bgSprite = new Sprite(Texture.from(img));
+      this.bgLayer.addChild(this.bgSprite);
       this.positionBackground();
     });
 
     // Board texture
     const boardUrl = `/textures/${themeId}-board.png`;
-    this.loadSprite(boardUrl, (sprite) => {
+    this.loadImage(boardUrl, (img) => {
       if (this.boardTexSprite) { this.boardTexLayer.removeChild(this.boardTexSprite); this.boardTexSprite.destroy(); }
-      this.boardTexSprite = sprite;
-      this.boardTexLayer.addChild(sprite);
+      this.boardTexSprite = new Sprite(Texture.from(img));
+      this.boardTexLayer.addChild(this.boardTexSprite);
       this.texturesLoaded = true;
+      this.redraw();
+    });
+
+    // Piece textures
+    this.loadImage(`/textures/${themeId}-piece-white.png`, (img) => {
+      this.pieceTexWhite = Texture.from(img);
+      this.redraw();
+    });
+    this.loadImage(`/textures/${themeId}-piece-black.png`, (img) => {
+      this.pieceTexBlack = Texture.from(img);
       this.redraw();
     });
   }
 
-  private loadSprite(url: string, onLoad: (sprite: Sprite) => void): void {
+  private loadImage(url: string, onLoad: (img: HTMLImageElement) => void): void {
     const img = new Image();
-    img.onload = () => {
-      const tex = Texture.from(img);
-      const sprite = new Sprite(tex);
-      onLoad(sprite);
-    };
-    img.onerror = () => {
-      // Texture not generated yet — silently skip
-    };
+    img.onload = () => onLoad(img);
+    img.onerror = () => {}; // Silently skip if not generated
     img.src = url;
   }
 
@@ -454,12 +460,8 @@ export class GameCanvas {
   }
 
   /**
-   * Create a 3D piece with:
-   *  - Pedestal base (wider, flatter)
-   *  - Spherical body with specular highlight
-   *  - Bevel rim ring
-   *  - Detailed crown ornament
-   *  - Drop shadow + glow halo
+   * Create a piece using the AI-generated sprite texture.
+   * Falls back to a simple colored circle if texture not loaded.
    */
   private createPiece(
     amazon: { id: string; player: 'white' | 'black'; position: Position },
@@ -468,114 +470,51 @@ export class GameCanvas {
     const cs = this.cellSize;
     const cx = this.ox + amazon.position.col * cs + cs / 2;
     const cy = this.oy + amazon.position.row * cs + cs / 2;
-    const R = cs * 0.38; // outer radius
+    const size = cs * 0.82; // sprite size
 
     const white = amazon.player === 'white';
-    const base = white ? this.theme.pieces.white : this.theme.pieces.black;
     const accent = white ? this.theme.pieces.whiteGlow : this.theme.pieces.blackGlow;
-    const dark = white ? this.theme.pieces.whiteShadow : this.theme.pieces.blackShadow;
+    const tex = white ? this.pieceTexWhite : this.pieceTexBlack;
 
-    // ── 1. Drop shadow (offset ellipse) ──
-    const sd = cs * 0.05;
+    // ── Drop shadow ──
+    const sd = cs * 0.04;
     const shadow = new Graphics();
-    shadow.ellipse(sd, sd * 1.6, R * 1.05, R * 0.45);
+    shadow.ellipse(sd, sd * 1.8, size * 0.45, size * 0.18);
     shadow.fill({ color: 0x000000, alpha: 0.3 });
+    c.addChild(shadow);
 
-    // ── 2. Pedestal base ──
-    const baseR = R * 0.85;
-    const pedestal = new Graphics();
-    // Bottom tier
-    pedestal.ellipse(0, R * 0.18, baseR, R * 0.3);
-    pedestal.fill({ color: dark, alpha: 0.7 });
-    // Top tier
-    pedestal.ellipse(0, R * 0.06, baseR * 0.85, R * 0.22);
-    pedestal.fill({ color: accent, alpha: 0.25 });
-    pedestal.ellipse(0, R * 0.06, baseR * 0.85, R * 0.22);
-    pedestal.stroke({ color: dark, width: 1, alpha: 0.3 });
-
-    // ── 3. Main body (spherical gradient via layered circles) ──
-    const body = new Graphics();
-    // Back hemisphere (darker)
-    body.circle(0, -R * 0.04, R);
-    body.fill({ color: dark, alpha: 0.3 });
-    // Front hemisphere (base color)
-    body.circle(0, -R * 0.02, R * 0.98);
-    body.fill({ color: base });
-    // Core highlight (specular)
-    body.circle(-R * 0.3, -R * 0.32, R * 0.47);
-    body.fill({ color: 0xffffff, alpha: 0.28 });
-    // Secondary highlight
-    body.circle(-R * 0.18, -R * 0.2, R * 0.32);
-    body.fill({ color: 0xffffff, alpha: 0.12 });
-    // Bottom shadow (ambient occlusion)
-    body.ellipse(0, R * 0.35, R * 0.7, R * 0.2);
-    body.fill({ color: 0x000000, alpha: 0.12 });
-    // Rim highlight
-    body.circle(0, 0, R);
-    body.stroke({ color: 0xffffff, width: 1.2, alpha: 0.15 });
-
-    // ── 4. Bevel ring ──
-    const ring = new Graphics();
-    ring.circle(0, -R * 0.02, R * 0.72);
-    ring.stroke({ color: accent, width: Math.max(1.5, cs * 0.03), alpha: 0.35 });
-    ring.circle(0, -R * 0.02, R * 0.72 + 1);
-    ring.stroke({ color: dark, width: 0.8, alpha: 0.2 });
-
-    // ── 5. Crown ──
-    const s = R * 0.44;
-    const crown = new Graphics();
-    crown.moveTo(-s, s * 0.2);
-    crown.lineTo(-s * 0.7, -s * 0.5);
-    crown.lineTo(-s * 0.25, s * 0.05);
-    crown.lineTo(0, -s * 0.8);
-    crown.lineTo(s * 0.25, s * 0.05);
-    crown.lineTo(s * 0.7, -s * 0.5);
-    crown.lineTo(s, s * 0.2);
-    crown.closePath();
-    // Crown fill with gradient effect
-    crown.fill({ color: accent, alpha: 0.55 });
-    // Crown specular
-    crown.moveTo(0, -s * 0.8);
-    crown.lineTo(s * 0.25, s * 0.05);
-    crown.lineTo(0, -s * 0.1);
-    crown.lineTo(-s * 0.25, s * 0.05);
-    crown.closePath();
-    crown.fill({ color: 0xffffff, alpha: 0.15 });
-    crown.moveTo(-s, s * 0.2);
-    crown.lineTo(-s * 0.7, -s * 0.5);
-    crown.lineTo(-s * 0.25, s * 0.05);
-    crown.lineTo(0, -s * 0.8);
-    crown.lineTo(s * 0.25, s * 0.05);
-    crown.lineTo(s * 0.7, -s * 0.5);
-    crown.lineTo(s, s * 0.2);
-    crown.closePath();
-    crown.stroke({ color: base, width: 1, alpha: 0.5 });
-
-    // ── 6. Glow halo ──
+    // ── Glow halo (behind piece) ──
     const halo = new Graphics();
-    halo.circle(0, 0, R + 5);
-    halo.fill({ color: accent, alpha: 0.22 });
-    halo.circle(0, 0, R + 3);
-    halo.fill({ color: accent, alpha: 0.1 });
+    halo.circle(0, 0, size * 0.52);
+    halo.fill({ color: accent, alpha: 0.18 });
+    c.addChild(halo);
 
-    // ── 7. Selection indicator ──
+    // ── Main sprite (or fallback circle) ──
+    if (tex) {
+      const sprite = new Sprite(tex);
+      sprite.anchor.set(0.5);
+      sprite.width = size;
+      sprite.height = size;
+      c.addChild(sprite);
+    } else {
+      const fallback = new Graphics();
+      fallback.circle(0, 0, size * 0.42);
+      fallback.fill({ color: white ? 0xf0f0e0 : 0x1a1a1a });
+      fallback.circle(0, 0, size * 0.42);
+      fallback.stroke({ color: accent, width: 2, alpha: 0.5 });
+      c.addChild(fallback);
+    }
+
+    // ── Selection ring ──
     if (this.state?.selectedAmazonId === amazon.id) {
       const sel = new Graphics();
-      sel.circle(0, 0, R + 8);
+      sel.circle(0, 0, size * 0.54);
       sel.stroke({ color: 0x4ecdc4, width: 2.5, alpha: 0.9 });
-      sel.circle(0, 0, R + 11);
+      sel.circle(0, 0, size * 0.58);
       sel.stroke({ color: 0x4ecdc4, width: 1, alpha: 0.3 });
       c.addChild(sel);
       (c as any)._selRing = sel;
     }
-
-    // Assembly order: back → front
-    c.addChild(shadow);   // bottom
-    c.addChild(halo);     // glow behind
-    c.addChild(pedestal);
-    c.addChild(body);
-    c.addChild(ring);
-    c.addChild(crown);
 
     c.x = cx;
     c.y = cy;
@@ -809,9 +748,9 @@ export class GameCanvas {
       if (!am) continue;
       const phase = (c as any)._pulsePhase || 0;
       if (am.player === this.state?.currentPlayer) {
-        // Halo is currently child[1] (after shadow)
+        // Halo is child[1] (shadow=0, halo=1, sprite/fallback=2, sel=3)
         const halo = c.children[1] as Graphics | undefined;
-        if (halo) halo.alpha = 0.18 + Math.sin(now / 1000 * 2.5 + phase) * 0.08;
+        if (halo) halo.alpha = 0.12 + Math.sin(now / 1000 * 2.5 + phase) * 0.08;
       }
       const sel = (c as any)._selRing as Graphics | undefined;
       if (sel) sel.alpha = 0.65 + Math.sin(now / 1000 * 3.5) * 0.35;

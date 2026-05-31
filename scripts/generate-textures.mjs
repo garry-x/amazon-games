@@ -4,7 +4,7 @@
  *
  * Usage: node scripts/generate-textures.mjs [theme] [type]
  *   theme: all | egyptian | medieval | scifi | nature
- *   type:  all | bg | board
+ *   type:  all | bg | board | piece
  */
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
@@ -27,6 +27,14 @@ const PROMPTS = {
       prompt: 'top-down view of an ornate ancient Egyptian game board made of gold-inlaid sandstone and deep lapis lazuli tiles arranged in a checkerboard grid pattern, hieroglyphic border decorations, warm golden light, marble texture, luxurious craftsmanship, 8k ultra detailed, tile texture, seamless pattern',
       negative: 'blurry, perspective, 3d, shadows, people, low quality, modern, distorted',
     },
+    'piece-white': {
+      prompt: 'A single elegant ivory chess queen piece with ancient Egyptian gold crown and lapis lazuli gem inlays, ornate hieroglyphic engravings on the base, standing on a circular pedestal, regal posture, dramatic studio lighting from top-left, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
+    'piece-black': {
+      prompt: 'A single majestic obsidian chess queen piece with ancient Egyptian gold crown and ruby gem inlays, ornate hieroglyphic engravings on the base, standing on a circular pedestal, dark elegant presence, dramatic studio lighting from top-left with rim light, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
   },
   medieval: {
     bg: {
@@ -36,6 +44,14 @@ const PROMPTS = {
     board: {
       prompt: 'top-down view of a medieval game board made of rich oak and dark walnut wood inlay in square checkerboard pattern, wrought iron corner rivets, castle stone border edge, warm firelight glow, wood grain texture, handcrafted medieval craftsmanship, 8k ultra detailed, tile texture, seamless',
       negative: 'blurry, perspective, 3d, shadows, modern, distorted, low quality',
+    },
+    'piece-white': {
+      prompt: 'A single elegant ivory marble chess queen piece with medieval iron crown and emerald gem, ornate Gothic engravings on the base, standing on a circular stone pedestal, regal and noble posture, dramatic firelight from top-left, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
+    'piece-black': {
+      prompt: 'A single majestic dark iron chess queen piece with medieval steel crown and ruby gem, ornate Gothic engravings on the base, standing on a circular stone pedestal, dark imposing presence, dramatic firelight from top-left with rim light, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
     },
   },
   scifi: {
@@ -47,6 +63,14 @@ const PROMPTS = {
       prompt: 'top-down view of a holographic game grid floating above a brushed dark metal surface, glowing neon cyan grid lines in square checkerboard pattern, circuit trace decorations, chrome border edge, ambient blue glow, futuristic sci-fi aesthetic, 8k ultra detailed, tile texture, seamless',
       negative: 'blurry, perspective, 3d, shadows, natural, wood, stone, low quality',
     },
+    'piece-white': {
+      prompt: 'A single sleek white chrome chess queen piece with neon cyan holographic crown and circuit trace engravings, standing on a glowing circular base, futuristic cyberpunk aesthetic, dramatic blue and white studio lighting from top-left, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
+    'piece-black': {
+      prompt: 'A single sleek dark titanium chess queen piece with neon magenta holographic crown and circuit trace engravings, standing on a glowing circular base, futuristic cyberpunk aesthetic, dramatic purple and blue rim lighting, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
   },
   nature: {
     bg: {
@@ -57,12 +81,22 @@ const PROMPTS = {
       prompt: 'top-down view of a natural stone game board with carved stone tiles in checkerboard pattern, lush green moss growing between squares, vine border decorations, dappled forest sunlight, organic natural texture, elven forest craftsmanship, 8k ultra detailed, tile texture, seamless',
       negative: 'blurry, perspective, 3d, shadows, modern, metal, plastic, low quality',
     },
+    'piece-white': {
+      prompt: 'A single elegant white birch wood chess queen piece with woven vine crown and small emerald leaf gems, delicate nature-inspired carvings on the base, standing on a circular wooden pedestal, elven forest aesthetic, dramatic golden forest light from top-left, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
+    'piece-black': {
+      prompt: 'A single majestic dark walnut wood chess queen piece with thorn vine crown and deep amber gems, intricate nature carvings on the base, standing on a circular wooden pedestal, dark forest mystique, dramatic moonlight from top-left with rim light, sharp focus, product photography, centered, isolated on pure white background',
+      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+    },
   },
 };
 
 const SIZES = {
   bg: { width: 1920, height: 1080 },
   board: { width: 2048, height: 2048 },
+  'piece-white': { width: 1024, height: 1024 },
+  'piece-black': { width: 1024, height: 1024 },
 };
 
 // ── ComfyUI API helpers ──────────────────────────────────────
@@ -168,7 +202,15 @@ async function main() {
   const typeArg = process.argv[3] || 'all';
 
   const themes = themeArg === 'all' ? Object.keys(PROMPTS) : [themeArg];
-  const types = typeArg === 'all' ? ['bg', 'board'] : [typeArg];
+  const typeMap = {
+    all: ['bg', 'board', 'piece-white', 'piece-black'],
+    bg: ['bg'],
+    board: ['board'],
+    piece: ['piece-white', 'piece-black'],
+    'piece-white': ['piece-white'],
+    'piece-black': ['piece-black'],
+  };
+  const types = typeMap[typeArg] || [typeArg];
 
   // Validate
   for (const t of themes) {
