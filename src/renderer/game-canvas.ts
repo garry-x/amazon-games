@@ -36,6 +36,7 @@ export class GameCanvas {
   private pieceSprites: Map<string, Container> = new Map();
   private shotEffects: ShotEffect[] = [];
   private initialized = false;
+  private destroyed = false;
   private pendingState: GameState | null = null;
   private resizeObs: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
@@ -50,6 +51,9 @@ export class GameCanvas {
 
   async init(container: HTMLElement): Promise<void> {
     this.container = container;
+    // Clean up stale canvases from previous (StrictMode) mounts
+    for (const old of container.querySelectorAll('canvas')) old.remove();
+
     this.app = new Application();
 
     const w = container.clientWidth || 800;
@@ -63,6 +67,9 @@ export class GameCanvas {
       width: w,
       height: h,
     });
+
+    // Abort if destroyed during async init (React StrictMode)
+    if (this.destroyed) return;
 
     // Layer ordering: bg → board-tex → board-gfx → burn → pieces → effects
     this.bgLayer = new Container();
@@ -79,7 +86,13 @@ export class GameCanvas {
     this.app.stage.addChild(this.pieceLayer);
     this.app.stage.addChild(this.effectLayer);
 
-    container.appendChild(this.app.canvas as HTMLCanvasElement);
+    // Make canvas fill the container
+    if (!this.app?.canvas) return;
+    const canvas = this.app.canvas as HTMLCanvasElement;
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    container.appendChild(canvas);
     this.setupInteraction();
 
     this.app.ticker.add(() => this.tick());
@@ -103,7 +116,7 @@ export class GameCanvas {
   setTheme(theme: Theme): void {
     const changed = this.theme.id !== theme.id;
     this.theme = theme;
-    if (this.initialized) {
+    if (this.initialized && this.app?.renderer) {
       this.app.renderer.background = theme.background.primary;
       if (changed) this.loadThemeTextures();
       this.redraw();
@@ -111,7 +124,7 @@ export class GameCanvas {
   }
 
   setState(state: GameState): void {
-    if (!this.initialized) { this.pendingState = state; return; }
+    if (!this.initialized || !this.app?.renderer) { this.pendingState = state; return; }
     this.state = state;
     this.recalcSize();
     this.redraw();
@@ -120,10 +133,18 @@ export class GameCanvas {
   setOnCellClick(cb: (pos: Position) => void): void { this.onCellClick = cb; }
 
   destroy(): void {
+    this.destroyed = true;
     this.initialized = false;
     this.resizeObs?.disconnect();
     this.resizeObs = null;
-    try { this.app.destroy(true); } catch { /* v8.18 _cancelResize */ }
+    if (this.app) {
+      try {
+        // Canvas getter may throw if app.init() never completed (StrictMode)
+        const canvas = this.app.canvas as HTMLCanvasElement | undefined;
+        if (canvas?.parentElement) canvas.parentElement.removeChild(canvas);
+      } catch { /* Canvas not available — app never fully initialized */ }
+      try { this.app.destroy(true); } catch { /* v8.18 */ }
+    }
   }
 
   // ========== Texture loading ==========
@@ -165,7 +186,7 @@ export class GameCanvas {
   }
 
   private positionBackground(): void {
-    if (!this.bgSprite || !this.container) return;
+    if (!this.bgSprite || !this.container || !this.app?.renderer) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     if (w === 0 || h === 0) return;
@@ -197,7 +218,7 @@ export class GameCanvas {
   // ========== Sizing ==========
 
   private handleResize(): void {
-    if (!this.initialized || !this.container) return;
+    if (!this.initialized || !this.container || !this.app?.renderer) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     if (w === 0 || h === 0) return;
@@ -720,8 +741,9 @@ export class GameCanvas {
   // ========== Interaction ==========
 
   private setupInteraction(): void {
+    if (!this.app?.canvas) return;
     const canvas = this.app.canvas as HTMLCanvasElement;
-    canvas.style.cssText = 'position:absolute;top:0;left:0;cursor:pointer;';
+    canvas.style.cursor = 'pointer';
 
     canvas.addEventListener('click', (e: MouseEvent) => {
       const pos = this.eventToPos(e);
@@ -746,7 +768,7 @@ export class GameCanvas {
   }
 
   private eventToPos(e: { clientX: number; clientY: number }): Position | null {
-    if (!this.state || this.cellSize === 0) return null;
+    if (!this.state || this.cellSize === 0 || !this.app?.canvas) return null;
     const canvas = this.app.canvas as HTMLCanvasElement;
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -776,6 +798,7 @@ export class GameCanvas {
   // ========== Animation tick ==========
 
   private tick(): void {
+    if (this.destroyed || !this.initialized) return;
     const now = performance.now();
 
     // Piece glow pulse
