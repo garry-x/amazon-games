@@ -293,21 +293,23 @@ export class GameCanvas {
       const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = data.data;
 
-      // Remove green/magenta background pixels (chroma key)
+      // Aggressive chroma key — removes green/white bg, keeps subject
       for (let i = 0; i < pixels.length; i += 4) {
         const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-        // Only key out green (g > 180, r/b low) or magenta (r+b high, g low)
-        const isGreen = g > 160 && r < g * 0.7 && b < g * 0.7;
-        const isMagenta = r > 180 && b > 180 && g < 100;
-        const isGrayBg = r > 200 && g > 200 && b > 200 && Math.abs(r - g) < 20 && Math.abs(g - b) < 20;
-        if (isGreen || isMagenta || isGrayBg) {
+        const a = pixels[i + 3];
+        // Key out green tones (broad range)
+        const isGreen = g > 120 && g > r * 1.1 && g > b * 1.1;
+        // Key out near-white/gray bg
+        const isGray = r > 180 && g > 180 && b > 180 && Math.abs(r - g) < 40 && Math.abs(g - b) < 40;
+        // Key out magenta
+        const isMagenta = r > 150 && b > 150 && g < r * 0.6 && g < b * 0.6;
+        if (isGreen || isGray || isMagenta) {
           pixels[i + 3] = 0;
-        } else {
-          // Soft edge: reduce alpha near key color boundary
-          const grayDist = Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
-          if (r > 180 && g > 180 && b > 180 && grayDist < 40) {
-            pixels[i + 3] = Math.floor(pixels[i + 3] * grayDist / 40);
-          }
+        }
+        // Edge feather: partial transparency for semi-green pixels
+        if (a > 0 && g > 100 && g > r * 0.9 && g > b * 0.9) {
+          const greenness = (g - Math.max(r, b)) / 255;
+          pixels[i + 3] = Math.floor(a * Math.max(0, 1 - greenness * 2));
         }
       }
       ctx.putImageData(data, 0, 0);
@@ -657,12 +659,19 @@ export class GameCanvas {
     halo.fill({ color: accent, alpha: 0.18 });
     c.addChild(halo);
 
-    // ── Main sprite (or fallback circle) ──
+    // ── Main sprite (circular mask) ──
     if (tex) {
+      // Circular mask to crop the sprite
+      const mask = new Graphics();
+      mask.circle(0, 0, size * 0.46);
+      mask.fill({ color: 0xffffff });
+      c.addChild(mask);
+
       const sprite = new Sprite(tex);
       sprite.anchor.set(0.5);
-      sprite.width = size;
-      sprite.height = size;
+      sprite.width = size * 0.95;
+      sprite.height = size * 0.95;
+      sprite.mask = mask;
       c.addChild(sprite);
     } else {
       const fallback = new Graphics();
