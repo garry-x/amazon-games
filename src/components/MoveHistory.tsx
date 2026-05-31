@@ -30,11 +30,26 @@ export function MoveHistory() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b" style={{ borderColor: accent + '22' }}>
-        <h3 className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: accent }}>
-          走棋记录
-        </h3>
-        <p className="text-white/35 text-[10px] mt-1">共 {moves.length} 步</p>
+      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: accent + '22' }}>
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: accent }}>走棋记录</h3>
+          <p className="text-white/35 text-[10px] mt-1">共 {moves.length} 步</p>
+        </div>
+        {moves.length > 0 && (
+          <button
+            onClick={() => {
+              const text = pairs.map(({ num, white, black }) => {
+                const w = white ? `${fmt(white.from)}→${fmt(white.to)}🏹${fmt(white.arrow)}` : '';
+                const b = black ? ` ${fmt(black.from)}→${fmt(black.to)}🏹${fmt(black.arrow)}` : '';
+                return `${num}. ${w}${b}`;
+              }).join('\n');
+              navigator.clipboard.writeText(text).catch(() => {});
+            }}
+            className="text-[10px] text-white/30 hover:text-white/60 transition-colors px-2 py-1 rounded border border-white/10"
+            title="复制走棋记录">
+            📋 复制
+          </button>
+        )}
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-1">

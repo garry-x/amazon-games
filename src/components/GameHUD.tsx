@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGameStore } from '../store/game-store';
 import { useUIStore } from '../store/ui-store';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +11,8 @@ export function GameHUD() {
   const aiConfig = useGameStore(s => s.aiConfig);
   const forfeit = useGameStore(s => s.forfeit);
   const theme = useUIStore(s => s.theme);
+  const gameStartTime = useGameStore(s => s.gameStartTime);
+  const [elapsed, setElapsed] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
 
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
@@ -18,6 +20,15 @@ export function GameHUD() {
   const blackClr = useMemo(() => '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0'), [theme]);
 
   if (!gameState || gameState.phase !== 'playing') return null;
+
+  // Timer
+  useEffect(() => {
+    if (!gameStartTime) return;
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - gameStartTime) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [gameStartTime]);
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const player = gameState.currentPlayer;
   const step = gameState.step;
@@ -88,6 +99,10 @@ export function GameHUD() {
             <div className="flex-1 text-center p-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
               <div className="text-sm font-bold text-white tabular-nums">{burned}</div>
               <div className="text-[10px] text-white/25">燃烧</div>
+            </div>
+            <div className="flex-1 text-center p-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <div className="text-sm font-bold text-white tabular-nums">{fmt(elapsed)}</div>
+              <div className="text-[10px] text-white/25">用时</div>
             </div>
             {variant && (
               <div className="flex-1 text-center p-1.5 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)' }}>

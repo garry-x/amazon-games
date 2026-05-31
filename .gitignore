@@ -27,3 +27,4 @@ dist-ssr
 .game-config
 .dev-server.pid
 logs/*.log
+.gitnexus

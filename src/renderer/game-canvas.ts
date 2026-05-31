@@ -62,6 +62,7 @@ export class GameCanvas {
   private pieceSprites: Map<string, Container> = new Map();
   private meteorAnims: MeteorAnim[] = [];
   private meteorGfx: Graphics | null = null;
+  private lastRedrawTime = 0;
   private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
   private fireGfx: Graphics | null = null;
   private lastRenderedMoveCount = 0;
@@ -778,20 +779,29 @@ export class GameCanvas {
 
         // Draw comet tail — tapered, fading from bright to dark
         const maxWidth = cs * 0.22;
-        const widthCurve = [1.0, 0.9, 0.75, 0.55, 0.35, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0];
-        const colors = [0xfff8e0, 0xffe088, 0xffb040, 0xff8018, 0xff5000, 0xcc3000, 0x881800, 0x550800];
+        // Width curve: exponential decay from head to tail
+        const widthFn = (f: number) => Math.max(0.01, maxWidth * Math.exp(-f * 4));
+
+        // Color gradient: smooth interpolation bright→dark
+        const lerpColor = (f: number): number => {
+          const r = Math.floor(255 * (1 - f * 0.6));
+          const g = Math.floor(200 * Math.exp(-f * 3.5));
+          const b = Math.floor(30 * (1 - f) * f); // peaks at mid, fades at ends
+          return (Math.max(0, Math.min(255, r)) << 16) |
+                 (Math.max(0, Math.min(255, g)) << 8) |
+                 Math.max(0, Math.min(255, b));
+        };
 
         for (let i = 0; i < a.trail.length; i++) {
           const pt = a.trail[i];
-          const idx = a.trail.length - 1 - i; // 0 = oldest
-          const frac = idx / 11; // normalize to 0..1
+          const idx = a.trail.length - 1 - i;
+          const frac = idx / (a.trail.length - 1);
           if (frac >= 1) continue;
-          const r = maxWidth * (widthCurve[idx] || 0.01);
-          if (r < 0.5) continue;
-          const ci = Math.min(colors.length - 1, Math.floor(frac * colors.length));
-          const alpha = (1 - frac) * 0.6;
+          const r = widthFn(frac);
+          if (r < 0.3) continue;
+          const alpha = (1 - frac) * 0.65;
           g.circle(pt.x, pt.y, r);
-          g.fill({ color: colors[ci], alpha });
+          g.fill({ color: lerpColor(frac), alpha });
         }
 
         // Meteor head — round fireball (AI texture or fallback circles)
@@ -885,7 +895,7 @@ export class GameCanvas {
           p.y += p.vy * pdt;
           p.vx *= 0.91;
           p.vy *= 0.91;
-          p.vy += 80 * pdt; // gravity
+          p.vy += 140 * pdt; // gravity — debris falls naturally
           p.life -= pdt;
           if (p.life <= 0) continue;
           const alpha = p.life / Math.abs(p.maxLife);
@@ -988,7 +998,11 @@ export class GameCanvas {
       const changed = (this.hoveredCell === null) !== (next === null)
         || (this.hoveredCell && next && !posEqual(this.hoveredCell, next));
       this.hoveredCell = next;
-      if (changed && this.initialized) this.redraw();
+      // Throttle redraw to ~30fps on hover
+      if (changed && this.initialized) {
+        const now = performance.now();
+        if (now - this.lastRedrawTime > 33) { this.lastRedrawTime = now; this.redraw(); }
+      }
     });
 
     stage.on('pointerleave', () => {

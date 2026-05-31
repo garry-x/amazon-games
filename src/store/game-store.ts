@@ -28,6 +28,7 @@ interface GameStore {
   variant: VariantConfig | null;
   aiConfig: AIConfig;
   aiThinking: boolean;
+  gameStartTime: number;
 
   setAIConfig: (config: Partial<AIConfig>) => void;
   startGame: (variant: VariantConfig, boardSize: BoardSize) => void;
@@ -42,6 +43,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   variant: null,
   aiConfig: { enabled: false, aiPlayer: 'black', difficulty: 'medium' },
   aiThinking: false,
+  gameStartTime: 0,
 
   setAIConfig: (config) => set(s => ({ aiConfig: { ...s.aiConfig, ...config } })),
 
@@ -55,7 +57,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    set({ gameState: state, variant });
+    set({ gameState: state, variant, gameStartTime: Date.now() });
 
     // If AI is white, trigger first move
     if (get().aiConfig.enabled && get().aiConfig.aiPlayer === 'white') {
@@ -128,9 +130,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   triggerAIMove: async () => {
-    const { gameState, aiConfig } = get();
+    const { gameState, aiConfig, aiThinking } = get();
     if (!gameState || gameState.phase !== 'playing') return;
     if (!aiConfig.enabled || gameState.currentPlayer !== aiConfig.aiPlayer) return;
+    if (aiThinking) return; // prevent concurrent AI requests
 
     set({ aiThinking: true });
 
