@@ -36,6 +36,7 @@ EOF
 cmd_start() {
   load_config
 
+  # Already running?
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid=$(cat "$PID_FILE")
@@ -50,13 +51,13 @@ cmd_start() {
   echo "⚔  亚马逊棋 — 启动中..."
   cd "$ROOT"
 
-  # 确保依赖已安装
   if [[ ! -d node_modules ]]; then
     echo "→ 安装依赖..."
     npm install
   fi
 
-  npx vite --host "$HOST" --port "$PORT" &
+  # Use vite directly so $! is the real server process (npx wrapper dies immediately)
+  ./node_modules/.bin/vite --host "$HOST" --port "$PORT" &
   local pid=$!
   echo "$pid" > "$PID_FILE"
 
@@ -86,17 +87,31 @@ cmd_stop() {
   local pid
   pid=$(cat "$PID_FILE")
 
-  if kill -0 "$pid" 2>/dev/null; then
-    kill "$pid" 2>/dev/null
-    sleep 1
-    if kill -0 "$pid" 2>/dev/null; then
-      kill -9 "$pid" 2>/dev/null
-    fi
-    echo "✓ 服务已停止 (PID: $pid)"
-  else
+  if ! kill -0 "$pid" 2>/dev/null; then
     echo "⚠ 进程 $pid 已不存在"
+    rm -f "$PID_FILE"
+    return 1
   fi
 
+  # Graceful shutdown: TERM → wait → KILL only if needed
+  echo "→ 正在停止服务 (PID: $pid)..."
+  kill "$pid" 2>/dev/null
+
+  # Wait up to 5 seconds for graceful exit
+  for i in $(seq 1 10); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      echo "✓ 服务已停止"
+      rm -f "$PID_FILE"
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  # Force kill if still running
+  echo "→ 进程未响应，强制终止..."
+  kill -9 "$pid" 2>/dev/null
+  sleep 0.5
+  echo "✓ 服务已强制停止"
   rm -f "$PID_FILE"
 }
 
@@ -105,12 +120,7 @@ cmd_stop() {
 # ============================================================
 cmd_restart() {
   cmd_stop 2>/dev/null || true
-  # Wait for port to be released
-  for i in $(seq 1 10); do
-    if ! ss -tlnp 2>/dev/null | grep -q ":${PORT} "; then break; fi
-    sleep 0.5
-  done
-  sleep 0.5
+  sleep 1
   cmd_start
 }
 
@@ -266,7 +276,7 @@ cmd_preview() {
   fi
 
   echo "→ 启动预览服务..."
-  npx vite preview --host "$HOST" --port "${PORT}" &
+  ./node_modules/.bin/vite preview --host "$HOST" --port "${PORT}" &
   local pid=$!
   echo "$pid" > "$PID_FILE"
   echo "✓ 预览服务已启动 → http://localhost:${PORT}"
