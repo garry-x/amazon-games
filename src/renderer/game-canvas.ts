@@ -74,6 +74,9 @@ export class GameCanvas {
   private burnTex: Texture | null = null;
   private tileLight: Texture | null = null;
   private tileDark: Texture | null = null;
+  private vfxFireball: Texture | null = null;
+  private vfxExplosion: Texture | null = null;
+  private vfxSmoke: Texture | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -136,7 +139,12 @@ export class GameCanvas {
 
     this.initialized = true;
 
-    // Load pre-generated textures for current theme
+    // Load VFX textures (shared across themes)
+    this.loadImage('/vfx/fireball.png', (img) => { this.vfxFireball = Texture.from(img); });
+    this.loadImage('/vfx/explosion.png', (img) => { this.vfxExplosion = Texture.from(img); });
+    this.loadImage('/vfx/smoke.png', (img) => { this.vfxSmoke = Texture.from(img); });
+
+    // Load theme textures
     this.loadThemeTextures();
 
     if (this.pendingState) {
@@ -744,42 +752,45 @@ export class GameCanvas {
         const my = topY + (a.ty - topY) * et;
         const mx = a.tx + Math.sin(t * Math.PI * 2) * cs * 0.3; // slight wobble
 
-        // Meteor tail (trail from top to current position)
-        const trailLen = 0.3;
+        // Flame trail (thick gradient line)
+        const trailLen = 0.25;
         const ts = Math.max(0, et - trailLen);
         const sy = topY + (a.ty - topY) * ts;
         const sx = a.tx + Math.sin(ts * Math.PI * 2) * cs * 0.3;
-
-        // Wide flame trail
         g.moveTo(sx, sy);
         g.lineTo(mx, my);
-        g.stroke({ color: 0xff6600, width: cs * 0.5, alpha: 0.5 });
-
-        // Inner bright trail
+        g.stroke({ color: 0xff6600, width: cs * 0.6, alpha: 0.55 });
         g.moveTo(sx, sy);
         g.lineTo(mx, my);
-        g.stroke({ color: 0xffdd00, width: cs * 0.2, alpha: 0.7 });
+        g.stroke({ color: 0xffcc00, width: cs * 0.25, alpha: 0.75 });
 
-        // Meteor head (bright fireball)
-        const headR = cs * 0.25;
-        // Outer glow
-        g.circle(mx, my, headR * 2);
-        g.fill({ color: 0xff6600, alpha: 0.3 });
-        // Mid glow
-        g.circle(mx, my, headR * 1.3);
-        g.fill({ color: 0xff9900, alpha: 0.5 });
-        // Core
-        g.circle(mx, my, headR * 0.7);
-        g.fill({ color: 0xffdd00, alpha: 0.8 });
-        // White hot center
-        g.circle(mx, my, headR * 0.3);
-        g.fill({ color: 0xffffff, alpha: 0.9 });
+        // Meteor head — use AI-generated fireball sprite or fallback
+        const headSize = cs * 0.9;
+        if (this.vfxFireball) {
+          // Draw sprite via matrix transform
+          const tex = this.vfxFireball;
+          const m = new Matrix();
+          m.translate(-tex.width / 2, -tex.height / 2);
+          m.scale(headSize / tex.width, headSize / tex.height);
+          m.translate(mx, my);
+          g.beginFill(0xffffff); // will be tinted by texture
+          // Use rect to draw the texture (PixiJS v8 fill texture)
+          g.rect(mx - headSize / 2, my - headSize / 2, headSize, headSize);
+          g.fill({ texture: tex, matrix: m, alpha: 0.9 });
+        } else {
+          // Fallback: layered circles
+          const hr = cs * 0.28;
+          g.circle(mx, my, hr * 2); g.fill({ color: 0xff6600, alpha: 0.3 });
+          g.circle(mx, my, hr * 1.2); g.fill({ color: 0xff9900, alpha: 0.5 });
+          g.circle(mx, my, hr * 0.6); g.fill({ color: 0xffdd00, alpha: 0.8 });
+          g.circle(mx, my, hr * 0.25); g.fill({ color: 0xffffff, alpha: 0.9 });
+        }
 
-        // Screen shake hint (brief flash when close)
+        // Screen flash when close
         if (et > 0.8) {
-          const flashAlpha = (et - 0.8) / 0.2 * 0.3;
+          const fa = (et - 0.8) / 0.2 * 0.3;
           g.rect(this.ox - 10, this.oy - 10, this.boardPx + 20, this.boardPx + 20);
-          g.fill({ color: 0xff8800, alpha: flashAlpha });
+          g.fill({ color: 0xff8800, alpha: fa });
         }
 
         if (t >= 1) { a.phase = 'impact'; a.elapsed = 0; }
@@ -789,11 +800,25 @@ export class GameCanvas {
       if (a.phase === 'impact') {
         const t = Math.min(a.elapsed / 1.4, 1);
 
-        // White flash (first 100ms)
-        if (t < 0.15) {
-          const ft = t / 0.15;
-          g.circle(a.tx, a.ty, cs * 0.8 * ft);
-          g.fill({ color: 0xffffff, alpha: 0.9 * (1 - ft) });
+        // White flash
+        if (t < 0.12) {
+          const ft = t / 0.12;
+          g.circle(a.tx, a.ty, cs * 0.7 * ft);
+          g.fill({ color: 0xffffff, alpha: 0.95 * (1 - ft) });
+        }
+
+        // AI-generated explosion sprite (scales up, fades out)
+        if (this.vfxExplosion) {
+          const tex = this.vfxExplosion;
+          const scale = 0.4 + t * 2.5;
+          const size = cs * scale;
+          const alpha = t < 0.15 ? t / 0.15 : (1 - (t - 0.15) / 0.85);
+          const m = new Matrix();
+          m.translate(-tex.width / 2, -tex.height / 2);
+          m.scale(size / tex.width, size / tex.height);
+          m.translate(a.tx, a.ty);
+          g.rect(a.tx - size / 2, a.ty - size / 2, size, size);
+          g.fill({ texture: tex, matrix: m, alpha: alpha * 0.85 });
         }
 
         // Shockwave rings
@@ -802,6 +827,20 @@ export class GameCanvas {
           const ringR = cs * 1.2 * rt;
           g.circle(a.tx, a.ty, ringR);
           g.stroke({ color: 0xff6600, width: 3, alpha: 0.6 * (1 - rt) });
+        }
+
+        // AI smoke puff (appears after peak, expands)
+        if (this.vfxSmoke && t > 0.2) {
+          const st = (t - 0.2) / 0.8;
+          const tex = this.vfxSmoke;
+          const ssize = cs * (0.5 + st * 2.0);
+          const salpha = st * 0.5 * (1 - st * 0.5);
+          const sm = new Matrix();
+          sm.translate(-tex.width / 2, -tex.height / 2);
+          sm.scale(ssize / tex.width, ssize / tex.height);
+          sm.translate(a.tx, a.ty);
+          g.rect(a.tx - ssize / 2, a.ty - ssize / 2, ssize, ssize);
+          g.fill({ texture: tex, matrix: sm, alpha: salpha });
         }
 
         // Debris particles (activate on first frame)
