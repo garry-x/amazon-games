@@ -63,6 +63,7 @@ export class GameCanvas {
   private meteorAnims: MeteorAnim[] = [];
   private meteorGfx: Graphics | null = null;
   private lastRedrawTime = 0;
+  private lastBurnedCount = -1;
   private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
   private fireGfx: Graphics | null = null;
   private lastRenderedMoveCount = 0;
@@ -460,8 +461,12 @@ export class GameCanvas {
   // ========== Burned cells ==========
 
   private drawBurns(): void {
-    if (this.burnGfx) { this.burnLayer.removeChild(this.burnGfx); this.burnGfx.destroy({ children: true }); }
     if (!this.state) return;
+    // Cache: only rebuild when burned cells change
+    if (this.lastBurnedCount === this.state.burnedCells.length && this.burnGfx) return;
+    this.lastBurnedCount = this.state.burnedCells.length;
+
+    if (this.burnGfx) { this.burnLayer.removeChild(this.burnGfx); this.burnGfx.destroy({ children: true }); }
 
     const cs = this.cellSize;
     const c = new Container();
