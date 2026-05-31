@@ -79,6 +79,7 @@ export class GameCanvas {
   private resizeObs: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
   private bgSprite: Sprite | null = null;
+  private bgOverlay: Graphics | null = null;
   private texturesLoaded = false;
   private pieceTexWhite: Texture | null = null;
   private pieceTexBlack: Texture | null = null;
@@ -126,6 +127,9 @@ export class GameCanvas {
     this.effectLayer = new Container();
 
     this.app.stage.addChild(this.bgLayer);
+    // Dark overlay on top of background for atmosphere
+    this.bgOverlay = new Graphics();
+    this.app.stage.addChild(this.bgOverlay);
     this.app.stage.addChild(this.boardTexLayer);
     this.app.stage.addChild(this.boardLayer);
     this.app.stage.addChild(this.burnLayer);
@@ -327,12 +331,20 @@ export class GameCanvas {
     if (w === 0 || h === 0) return;
     const tw = this.bgSprite.texture.width;
     const th = this.bgSprite.texture.height;
+    // Cover the viewport while maintaining aspect ratio
     const scale = Math.max(w / tw, h / th);
-    this.bgSprite.width = tw * scale;
-    this.bgSprite.height = th * scale;
-    this.bgSprite.x = (w - this.bgSprite.width) / 2;
-    this.bgSprite.y = (h - this.bgSprite.height) / 2;
-    this.bgSprite.alpha = 0.65;
+    this.bgSprite.width = Math.round(tw * scale);
+    this.bgSprite.height = Math.round(th * scale);
+    this.bgSprite.x = Math.round((w - this.bgSprite.width) / 2);
+    this.bgSprite.y = Math.round((h - this.bgSprite.height) / 2);
+    // Full opacity — dark atmosphere via separate overlay
+    this.bgSprite.alpha = 1.0;
+    // Dark overlay for atmosphere (semi-transparent black)
+    if (this.bgOverlay) {
+      this.bgOverlay.clear();
+      this.bgOverlay.rect(0, 0, w, h);
+      this.bgOverlay.fill({ color: 0x000000, alpha: 0.35 });
+    }
   }
 
   private positionBoardTexture(): void {
