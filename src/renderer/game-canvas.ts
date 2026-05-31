@@ -35,6 +35,7 @@ export class GameCanvas {
   private burnGfx: Graphics | null = null;
   private pieceSprites: Map<string, Container> = new Map();
   private shotEffects: ShotEffect[] = [];
+  private lastRenderedMoveCount = 0;
   private initialized = false;
   private destroyed = false;
   private pendingState: GameState | null = null;
@@ -443,11 +444,12 @@ export class GameCanvas {
       this.pieceSprites.set(amazon.id, c);
     }
 
-    if (this.state.moveHistory.length > 0) {
+    // Only trigger shot effect once when a new move is recorded
+    if (this.state.moveHistory.length > this.lastRenderedMoveCount) {
       const last = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(last.from, last.to);
-      // Trigger animated shot effect
       this.startShotEffect(last.to, last.arrow);
+      this.lastRenderedMoveCount = this.state.moveHistory.length;
     }
   }
 
