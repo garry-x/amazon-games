@@ -57,7 +57,7 @@ export class GameCanvas {
   private hoveredCell: Position | null = null;
   private boardGfx: Graphics | null = null;
   private boardTexSprite: Sprite | null = null;
-  private burnGfx: Graphics | null = null;
+  private burnGfx: Container | null = null;
   private pieceSprites: Map<string, Container> = new Map();
   private shotAnims: ShotAnim[] = [];
   private lastRenderedMoveCount = 0;
@@ -70,6 +70,7 @@ export class GameCanvas {
   private texturesLoaded = false;
   private pieceTexWhite: Texture | null = null;
   private pieceTexBlack: Texture | null = null;
+  private burnTex: Texture | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -206,6 +207,11 @@ export class GameCanvas {
     });
     this.loadImage(`/textures/${themeId}-piece-black.png`, (img) => {
       this.pieceTexBlack = Texture.from(img);
+      this.redraw();
+    });
+    // Burn/crater texture
+    this.loadImage(`/textures/${themeId}-burn.png`, (img) => {
+      this.burnTex = Texture.from(img);
       this.redraw();
     });
   }
@@ -360,36 +366,46 @@ export class GameCanvas {
   // ========== Burned cells ==========
 
   private drawBurns(): void {
-    if (this.burnGfx) { this.burnLayer.removeChild(this.burnGfx); this.burnGfx.destroy(); }
+    if (this.burnGfx) { this.burnLayer.removeChild(this.burnGfx); this.burnGfx.destroy({ children: true }); }
     if (!this.state) return;
 
-    const g = new Graphics();
     const cs = this.cellSize;
+    const c = new Container();
 
     for (const b of this.state.burnedCells) {
-      const x = this.ox + b.col * cs, y = this.oy + b.row * cs;
-      const cx = x + cs / 2, cy = y + cs / 2;
+      const cx = this.ox + b.col * cs + cs / 2;
+      const cy = this.oy + b.row * cs + cs / 2;
 
-      for (let i = 3; i >= 1; i--) {
-        g.circle(cx, cy, cs * 0.4 * i / 3);
-        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.08 + i * 0.04 });
+      if (this.burnTex) {
+        // Use AI-generated crater texture
+        const sprite = new Sprite(this.burnTex);
+        sprite.anchor.set(0.5);
+        sprite.width = cs * 0.88;
+        sprite.height = cs * 0.88;
+        sprite.x = cx;
+        sprite.y = cy;
+        c.addChild(sprite);
+      } else {
+        // Fallback: glow circles + X mark
+        const g = new Graphics();
+        for (let i = 3; i >= 1; i--) {
+          g.circle(cx, cy, cs * 0.4 * i / 3);
+          g.fill({ color: this.theme.effects.burnGlow, alpha: 0.08 + i * 0.04 });
+        }
+        const x = this.ox + b.col * cs, y = this.oy + b.row * cs;
+        const m = cs * 0.2;
+        g.moveTo(x + m, y + m);
+        g.lineTo(x + cs - m, y + cs - m);
+        g.stroke({ color: this.theme.effects.burn, width: Math.max(2, cs * 0.04), alpha: 0.55 });
+        g.moveTo(x + cs - m, y + m);
+        g.lineTo(x + m, y + cs - m);
+        g.stroke({ color: this.theme.effects.burn, width: Math.max(2, cs * 0.04), alpha: 0.55 });
+        c.addChild(g);
       }
-
-      g.rect(x + 2, y + 2, cs - 4, cs - 4);
-      g.fill({ color: this.theme.effects.burn, alpha: 0.18 });
-
-      const m = cs * 0.2;
-      g.moveTo(x + m, y + m);
-      g.lineTo(x + cs - m, y + cs - m);
-      g.stroke({ color: this.theme.effects.burn, width: Math.max(2, cs * 0.04), alpha: 0.55 });
-
-      g.moveTo(x + cs - m, y + m);
-      g.lineTo(x + m, y + cs - m);
-      g.stroke({ color: this.theme.effects.burn, width: Math.max(2, cs * 0.04), alpha: 0.55 });
     }
 
-    this.burnGfx = g;
-    this.burnLayer.addChild(g);
+    this.burnGfx = c as any;
+    this.burnLayer.addChild(c);
   }
 
   // ========== Highlights ==========

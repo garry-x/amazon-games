@@ -35,6 +35,10 @@ const PROMPTS = {
       prompt: 'A fierce Amazon warrior queen miniature figurine, wearing dark bronze and black Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, dark skin tone, obsidian crown with ruby gems, flowing dark cape, dramatic rim lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on pure white background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
+    burn: {
+      prompt: 'top-down view of a small circular crater burned into ancient sandstone floor, charred black edges, glowing orange embers at the bottom, cracked stone pattern radiating outward, smoke wisps, dark pit hole, dramatic overhead lighting, game texture asset, isolated dark background, 8k',
+      negative: 'perspective, 3d, characters, text, watermark, modern, grass',
+    },
   },
   medieval: {
     bg: {
@@ -52,6 +56,10 @@ const PROMPTS = {
     'piece-black': {
       prompt: 'A fierce medieval Amazon archer miniature figurine, wearing blackened steel plate armor with a dark surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, dark skin, iron crown with blood ruby, dark purple cape, dramatic rim lighting from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
+    },
+    burn: {
+      prompt: 'top-down view of a small circular crater smashed into stone castle floor, charred black edges, glowing orange embers in the pit, cracked cobblestone radiating outward, smoke rising, dark hole, dramatic firelight, game texture asset, isolated dark background, 8k',
+      negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
   scifi: {
@@ -71,6 +79,10 @@ const PROMPTS = {
       prompt: 'A fierce cyberpunk Amazon sniper miniature figurine, wearing black and magenta high-tech combat armor with neon glow accents, holding a futuristic energy bow drawn ready to fire, dynamic combat stance, dark skin, holographic skull visor, sharp focus on the glowing energy arrow, product photography, centered, isolated on pure white background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
+    burn: {
+      prompt: 'top-down view of a small circular plasma burn crater on a dark metal floor, glowing neon cyan edges, molten metal splatter pattern radiating outward, electric sparks in the pit, dark scorched hole, futuristic sci-fi damage, game texture asset, isolated dark background, 8k',
+      negative: 'perspective, 3d, characters, text, watermark, nature, organic',
+    },
   },
   nature: {
     bg: {
@@ -89,6 +101,10 @@ const PROMPTS = {
       prompt: 'A fierce dark elven Amazon ranger miniature figurine, wearing black and deep purple shadow-leaf armor, holding a drawn elegant darkwood longbow ready to shoot, dynamic archer stance, dark skin with elf ears, crown of black thorns, midnight blue cape, dramatic moonlight from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
+    burn: {
+      prompt: 'top-down view of a small circular scorched crater in mossy forest floor, charred black edges, glowing orange embers, cracked earth and burnt roots radiating outward, smoke and ash, dark pit hole, dappled forest light, game texture asset, isolated dark background, 8k',
+      negative: 'perspective, 3d, characters, text, watermark, modern, metal',
+    },
   },
 };
 
@@ -97,6 +113,7 @@ const SIZES = {
   board: { width: 2048, height: 2048 },
   'piece-white': { width: 1024, height: 1024 },
   'piece-black': { width: 1024, height: 1024 },
+  burn: { width: 1024, height: 1024 },
 };
 
 // ── ComfyUI API helpers ──────────────────────────────────────
@@ -203,10 +220,11 @@ async function main() {
 
   const themes = themeArg === 'all' ? Object.keys(PROMPTS) : [themeArg];
   const typeMap = {
-    all: ['bg', 'board', 'piece-white', 'piece-black'],
+    all: ['bg', 'board', 'piece-white', 'piece-black', 'burn'],
     bg: ['bg'],
     board: ['board'],
     piece: ['piece-white', 'piece-black'],
+    burn: ['burn'],
     'piece-white': ['piece-white'],
     'piece-black': ['piece-black'],
   };
