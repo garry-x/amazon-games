@@ -84,8 +84,8 @@ const PROMPTS = {
       negative: 'blurry, low quality, people, text, watermark, daylight, natural',
     },
     board: {
-      prompt: 'top-down orthographic view of a clean minimalist sci-fi game board, alternating light silver-gray and dark charcoal square panels in a 10x10 checkerboard grid, subtle blue ambient glow, sleek dark border frame, smooth futuristic floor surface, even studio lighting, ultra detailed, seamless, 8k',
-      negative: 'blurry, perspective, neon, rainbow, cluttered, text, organic, shadows, 3d depth, distorted',
+      prompt: 'perfect top-down flat orthographic view of a futuristic holographic chess board, alternating dark navy blue and deep black square panels in a 10x10 checkerboard grid, thin glowing cyan grid lines separating the squares, dark titanium border frame with subtle blue LED edge lights, starship command deck floor, soft even ambient blue lighting, ultra detailed seamless flat texture, no perspective, no shadows, 8k',
+      negative: 'perspective, angled, 3d, shadows, warm colors, organic, wood, stone, neon overload, clutter',
     },
     'tile-light': {
       prompt: 'top-down view of a single square brushed silver metal panel, minimalist sci-fi floor, neutral cool gray color, smooth matte metallic surface, subtle micro-grain texture, clean and simple, seamless tileable, ultra detailed, 8k, game texture asset',
