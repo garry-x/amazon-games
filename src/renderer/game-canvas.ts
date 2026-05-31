@@ -625,6 +625,12 @@ export class GameCanvas {
       sprite.height = size * 0.95;
       sprite.mask = mask;
       c.addChild(sprite);
+
+      // Border ring
+      const border = new Graphics();
+      border.circle(0, 0, size * 0.47);
+      border.stroke({ color: accent, width: Math.max(1.5, cs * 0.025), alpha: 0.5 });
+      c.addChild(border);
     } else {
       const fallback = new Graphics();
       fallback.circle(0, 0, size * 0.42);
