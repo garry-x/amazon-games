@@ -28,12 +28,12 @@ const PROMPTS = {
       negative: 'blurry, perspective, 3d, shadows, people, low quality, modern, distorted',
     },
     'piece-white': {
-      prompt: 'A single elegant ivory chess queen piece with ancient Egyptian gold crown and lapis lazuli gem inlays, ornate hieroglyphic engravings on the base, standing on a circular pedestal, regal posture, dramatic studio lighting from top-left, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing white and gold Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, ivory skin tone, gold crown with lapis lazuli gems, flowing cape, dramatic studio lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A single majestic obsidian chess queen piece with ancient Egyptian gold crown and ruby gem inlays, ornate hieroglyphic engravings on the base, standing on a circular pedestal, dark elegant presence, dramatic studio lighting from top-left with rim light, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing dark bronze and black Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, dark skin tone, obsidian crown with ruby gems, flowing dark cape, dramatic rim lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
   },
   medieval: {
@@ -46,12 +46,12 @@ const PROMPTS = {
       negative: 'blurry, perspective, 3d, shadows, modern, distorted, low quality',
     },
     'piece-white': {
-      prompt: 'A single elegant ivory marble chess queen piece with medieval iron crown and emerald gem, ornate Gothic engravings on the base, standing on a circular stone pedestal, regal and noble posture, dramatic firelight from top-left, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing polished silver chainmail armor with a white surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, fair skin, iron crown with emerald gem, red cape, dramatic firelight from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A single majestic dark iron chess queen piece with medieval steel crown and ruby gem, ornate Gothic engravings on the base, standing on a circular stone pedestal, dark imposing presence, dramatic firelight from top-left with rim light, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing blackened steel plate armor with a dark surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, dark skin, iron crown with blood ruby, dark purple cape, dramatic rim lighting from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
   },
   scifi: {
@@ -64,12 +64,12 @@ const PROMPTS = {
       negative: 'blurry, perspective, 3d, shadows, natural, wood, stone, low quality',
     },
     'piece-white': {
-      prompt: 'A single sleek white chrome chess queen piece with neon cyan holographic crown and circuit trace engravings, standing on a glowing circular base, futuristic cyberpunk aesthetic, dramatic blue and white studio lighting from top-left, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce cyberpunk Amazon sniper miniature figurine, wearing white and cyan high-tech combat armor with neon glow accents, holding a futuristic energy bow drawn ready to fire, dynamic combat stance, pale skin, holographic crown visor, sharp focus on the glowing energy arrow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A single sleek dark titanium chess queen piece with neon magenta holographic crown and circuit trace engravings, standing on a glowing circular base, futuristic cyberpunk aesthetic, dramatic purple and blue rim lighting, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce cyberpunk Amazon sniper miniature figurine, wearing black and magenta high-tech combat armor with neon glow accents, holding a futuristic energy bow drawn ready to fire, dynamic combat stance, dark skin, holographic skull visor, sharp focus on the glowing energy arrow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
   },
   nature: {
@@ -82,12 +82,12 @@ const PROMPTS = {
       negative: 'blurry, perspective, 3d, shadows, modern, metal, plastic, low quality',
     },
     'piece-white': {
-      prompt: 'A single elegant white birch wood chess queen piece with woven vine crown and small emerald leaf gems, delicate nature-inspired carvings on the base, standing on a circular wooden pedestal, elven forest aesthetic, dramatic golden forest light from top-left, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce elven Amazon ranger miniature figurine, wearing white and green leaf-armor with delicate vine patterns, holding a drawn elegant elven longbow ready to shoot, dynamic archer stance, fair skin with elf ears, crown of woven white flowers, emerald cape, dramatic golden sunlight from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A single majestic dark walnut wood chess queen piece with thorn vine crown and deep amber gems, intricate nature carvings on the base, standing on a circular wooden pedestal, dark forest mystique, dramatic moonlight from top-left with rim light, sharp focus, product photography, centered, isolated on pure white background',
-      negative: 'multiple pieces, board, background scene, blurry, low quality, hands, text, watermark',
+      prompt: 'A fierce dark elven Amazon ranger miniature figurine, wearing black and deep purple shadow-leaf armor, holding a drawn elegant darkwood longbow ready to shoot, dynamic archer stance, dark skin with elf ears, crown of black thorns, midnight blue cape, dramatic moonlight from top-left, sharp focus on bow, product photography, centered, isolated on pure white background, 8k',
+      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
   },
 };

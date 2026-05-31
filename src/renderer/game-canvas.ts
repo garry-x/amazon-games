@@ -31,10 +31,11 @@ interface ShotAnim {
   fx: number; fy: number;
   tx: number; ty: number;
   elapsed: number;
-  duration: number;
+  bowDuration: number;   // draw phase
+  flyDuration: number;    // arrow flight
   color: number;
   particles: Particle[];
-  phase: 'fly' | 'impact' | 'done';
+  phase: 'bow' | 'fly' | 'impact' | 'done';
 }
 
 export class GameCanvas {
@@ -584,18 +585,19 @@ export class GameCanvas {
     const pColor = this.theme.effects.particle;
     const burnColor = this.theme.effects.burnGlow;
 
-    // Pre-spawn particles (pool allocation)
+    // Pre-spawn particles for impact burst
     const particles: Particle[] = [];
-    for (let i = 0; i < 30; i++) {
+    const shootAngle = Math.atan2(ty - fy, tx - fx);
+    for (let i = 0; i < 35; i++) {
       const p = poolGet();
       p.x = tx; p.y = ty;
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 60 + Math.random() * 180;
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed;
-      p.life = 0.35 + Math.random() * 0.45;
-      p.maxLife = p.life;
-      p.color = i < 10 ? color : (i < 20 ? pColor : burnColor);
+      // Fan out from the arrow's direction
+      const a = shootAngle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.7;
+      const speed = 50 + Math.random() * 200;
+      p.vx = Math.cos(a) * speed;
+      p.vy = Math.sin(a) * speed;
+      p.life = 0; p.maxLife = 0.3 + Math.random() * 0.5;
+      p.color = i < 12 ? color : (i < 24 ? pColor : burnColor);
       p.size = 2 + Math.random() * 5;
       particles.push(p);
     }
@@ -603,14 +605,14 @@ export class GameCanvas {
     this.shotAnims.push({
       fx, fy, tx, ty,
       elapsed: 0,
-      duration: Math.max(250, Math.min(450, dist * 1.2)),
+      bowDuration: 0.12,                    // brief draw flash
+      flyDuration: Math.max(200, Math.min(400, dist * 1.0)),
       color,
       particles,
-      phase: 'fly',
+      phase: 'bow',
     });
   }
 
-  /** Render shot animations with proper easing & particle pool (called from ticker). */
   private renderShotEffects(dt: number): void {
     if (this.shotAnims.length === 0) return;
     const g = new Graphics();
@@ -620,55 +622,99 @@ export class GameCanvas {
       const a = this.shotAnims[i];
       a.elapsed += dt;
 
+      // ── Phase: BOW DRAW (flash at shooter) ──
+      if (a.phase === 'bow') {
+        const t = Math.min(a.elapsed / a.bowDuration, 1);
+        // Expanding ring at shooter position (bow release shockwave)
+        const ringR = cs * 0.3 * Ease.outCubic(t);
+        g.circle(a.fx, a.fy, ringR);
+        g.stroke({ color: 0xffffff, width: 2, alpha: 0.6 * (1 - t) });
+        g.circle(a.fx, a.fy, ringR * 1.3);
+        g.stroke({ color: a.color, width: 1.5, alpha: 0.4 * (1 - t) });
+        // Bright flash
+        g.circle(a.fx, a.fy, cs * 0.12 * (1 - t));
+        g.fill({ color: 0xffffff, alpha: 0.5 * (1 - t) });
+        if (t >= 1) { a.phase = 'fly'; a.elapsed = 0; }
+      }
+
+      // ── Phase: ARROW FLIGHT ──
       if (a.phase === 'fly') {
-        const t = Math.min(a.elapsed / a.duration, 1);
-        const et = Ease.inQuad(t); // fast acceleration (bowstring release)
+        const t = Math.min(a.elapsed / a.flyDuration, 1);
+        const et = Ease.inQuad(t); // bowstring snap — instant acceleration
         const hx = a.fx + (a.tx - a.fx) * et;
         const hy = a.fy + (a.ty - a.fy) * et;
+        const angle = Math.atan2(a.ty - a.fy, a.tx - a.fx);
 
-        // Trail: fading glow behind the arrow head
-        const trailStart = Math.max(0, et - 0.25);
-        const sx = a.fx + (a.tx - a.fx) * trailStart;
-        const sy = a.fy + (a.ty - a.fy) * trailStart;
+        // Arrow shaft (thin line from shooter to current position)
+        const trailLen = 0.2;
+        const t0 = Math.max(0, et - trailLen);
+        const sx = a.fx + (a.tx - a.fx) * t0;
+        const sy = a.fy + (a.ty - a.fy) * t0;
         g.moveTo(sx, sy);
         g.lineTo(hx, hy);
-        g.stroke({ color: a.color, width: 3, alpha: 0.55 * (1 - t * 0.3) });
+        g.stroke({ color: a.color, width: 2, alpha: 0.5 * (1 - t * 0.2) });
 
-        // Arrow head
-        const angle = Math.atan2(a.ty - a.fy, a.tx - a.fx);
-        const hl = Math.max(6, cs * 0.11);
-        const ha = Math.PI / 5;
+        // Motion blur glow
+        g.moveTo(sx, sy);
+        g.lineTo(hx, hy);
+        g.stroke({ color: 0xffffff, width: 5, alpha: 0.12 * (1 - t * 0.2) });
+
+        // Arrow head (filled barb)
+        const hl = Math.max(6, cs * 0.1);
+        const ha = Math.PI / 5.5;
         g.moveTo(hx, hy);
         g.lineTo(hx - hl * Math.cos(angle - ha), hy - hl * Math.sin(angle - ha));
-        g.lineTo(hx - hl * 0.25 * Math.cos(angle), hy - hl * 0.25 * Math.sin(angle));
+        g.lineTo(hx - hl * 0.2 * Math.cos(angle), hy - hl * 0.2 * Math.sin(angle));
         g.lineTo(hx - hl * Math.cos(angle + ha), hy - hl * Math.sin(angle + ha));
         g.closePath();
-        g.fill({ color: a.color, alpha: 0.75 });
+        g.fill({ color: a.color, alpha: 0.8 });
 
-        if (t >= 1) {
-          a.phase = 'impact';
-          a.elapsed = 0;
-          // Activate particles on impact
-          for (const p of a.particles) { p.life = p.maxLife; }
+        // Feather fletching (small V at tail)
+        const tailX = hx - hl * 1.2 * Math.cos(angle);
+        const tailY = hy - hl * 1.2 * Math.sin(angle);
+        const fa = angle + Math.PI / 2;
+        g.moveTo(tailX, tailY);
+        g.lineTo(tailX + hl * 0.5 * Math.cos(fa - 0.3), tailY + hl * 0.5 * Math.sin(fa - 0.3));
+        g.moveTo(tailX, tailY);
+        g.lineTo(tailX + hl * 0.5 * Math.cos(fa + 0.3), tailY + hl * 0.5 * Math.sin(fa + 0.3));
+        g.stroke({ color: 0xffffff, width: 1, alpha: 0.6 });
+
+        if (t >= 1) { a.phase = 'impact'; a.elapsed = 0; }
+      }
+
+      // ── Phase: IMPACT ──
+      if (a.phase === 'impact') {
+        const t = Math.min(a.elapsed / 0.6, 1);
+        // Expanding ring
+        const ringR = cs * 0.4 * t;
+        g.circle(a.tx, a.ty, ringR);
+        g.stroke({ color: a.color, width: 2.5, alpha: 0.6 * (1 - t) });
+        g.circle(a.tx, a.ty, ringR * 0.6);
+        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.15 * (1 - t) });
+      }
+
+      // ── Particles (active during fly & impact) ──
+      if (a.phase === 'fly' || a.phase === 'impact') {
+        for (const p of a.particles) {
+          if (p.life <= 0) {
+            // Activate particle on impact
+            if (a.phase === 'impact' && p.maxLife > 0) { p.life = p.maxLife; p.maxLife = -1; }
+            else continue;
+          }
+          const pdt = Math.min(dt, 0.05);
+          p.x += p.vx * pdt;
+          p.y += p.vy * pdt;
+          p.vx *= 0.93;
+          p.vy *= 0.93;
+          p.life -= pdt;
+          if (p.life <= 0) continue;
+          const alpha = p.life / Math.abs(p.maxLife);
+          g.circle(p.x, p.y, Math.max(1, p.size * alpha));
+          g.fill({ color: p.color, alpha: alpha * 0.65 });
         }
       }
 
-      // Particle update & render (both phases, once activated)
-      for (const p of a.particles) {
-        if (p.life <= 0) continue;
-        const pdt = Math.min(dt, 0.05);
-        p.x += p.vx * pdt;
-        p.y += p.vy * pdt;
-        p.vx *= 0.94;
-        p.vy *= 0.94;
-        p.life -= pdt;
-        if (p.life <= 0) continue;
-        const alpha = p.life / p.maxLife;
-        g.circle(p.x, p.y, p.size * (0.4 + alpha * 0.6));
-        g.fill({ color: p.color, alpha: alpha * 0.6 });
-      }
-
-      // Cleanup finished animations
+      // Cleanup
       if (a.phase === 'impact' && a.elapsed > 1.0) {
         for (const p of a.particles) poolPut(p);
         this.shotAnims.splice(i, 1);
@@ -676,7 +722,6 @@ export class GameCanvas {
     }
 
     this.effectLayer.addChild(g);
-    // Remove after this frame
     const frameGfx = g;
     this.app.ticker.addOnce(() => {
       this.effectLayer.removeChild(frameGfx);
