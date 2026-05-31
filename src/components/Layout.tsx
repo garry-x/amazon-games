@@ -11,6 +11,16 @@ import { Tutorial } from './Tutorial';
 import { useState, useMemo } from 'react';
 import type { BoardSize, VariantConfig } from '../game/types';
 
+// Stable particle configs (no Math.random in render)
+const PARTICLES = Array.from({ length: 32 }, (_, i) => ({
+  id: i,
+  x: ((i * 137 + 41) % 100),
+  y: ((i * 251 + 73) % 100),
+  size: 1.5 + (i % 5) * 0.7,
+  dur: 3 + (i % 7),
+  delay: (i * 0.7) % 5,
+}));
+
 export function Layout() {
   const { showSetup, setShowSetup } = useUIStore();
   const { gameState, startGame } = useGameStore();
@@ -27,22 +37,19 @@ export function Layout() {
 
   return (
     <div className="h-full flex flex-col relative overflow-hidden"
-      style={{ background: `radial-gradient(ellipse at 50% 40%, ${bg2}dd 0%, ${bg1} 70%, #050510 100%)` }}>
+      style={{ background: `radial-gradient(ellipse at 50% 35%, ${bg2} 0%, ${bg1} 60%, #030308 100%)` }}>
 
       {/* Ambient particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
-        {Array.from({ length: 30 }).map((_, i) => (
-          <motion.div key={i} className="absolute rounded-full"
+        {PARTICLES.map(p => (
+          <motion.div key={p.id} className="absolute rounded-full"
             style={{
               background: accent,
-              width: 2 + Math.random() * 3,
-              height: 2 + Math.random() * 3,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              opacity: 0.1 + Math.random() * 0.15,
+              width: p.size, height: p.size,
+              left: `${p.x}%`, top: `${p.y}%`,
             }}
-            animate={{ y: [0, -40, 0], opacity: [0.08, 0.22, 0.08] }}
-            transition={{ duration: 3 + Math.random() * 5, repeat: Infinity, delay: Math.random() * 4 }}
+            animate={{ y: [0, -50, 0], opacity: [0.06, 0.2, 0.06] }}
+            transition={{ duration: p.dur, repeat: Infinity, delay: p.delay, ease: 'easeInOut' }}
           />
         ))}
       </div>
@@ -51,15 +58,17 @@ export function Layout() {
       {isPlaying && (
         <motion.div
           initial={{ y: -64 }} animate={{ y: 0 }}
-          className="relative z-10 flex items-center justify-between px-5 py-2.5 border-b border-white/5"
-          style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(16px)' }}
+          className="relative z-10 flex items-center justify-between px-5 py-2.5 border-b"
+          style={{ borderColor: accent + '22', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(16px)' }}
         >
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold tracking-wider"
               style={{ color: accent, textShadow: `0 0 16px ${accent}44` }}>
               ⚔ 亚马逊棋
             </h1>
-            <span className="text-white/30 text-xs font-mono hidden sm:inline">Game of the Amazons</span>
+            <span className="hidden sm:inline text-xs tracking-[0.2em] uppercase" style={{ color: accent + '77' }}>
+              Amazons
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <TopBtn onClick={() => setShowTutorial(true)}>📖 教程</TopBtn>
@@ -77,10 +86,9 @@ export function Layout() {
         <AnimatePresence>
           {showSetup && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.35 }}
-              className="absolute inset-0 z-20 flex items-center justify-center"
-            >
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
+              className="absolute inset-0 z-20">
               <GameSetup onStart={handleStart} />
             </motion.div>
           )}
@@ -97,8 +105,8 @@ export function Layout() {
                 <motion.div
                   initial={{ width: 0, opacity: 0 }} animate={{ width: 280, opacity: 1 }}
                   exit={{ width: 0, opacity: 0 }}
-                  className="border-l border-white/10 overflow-hidden"
-                  style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(12px)' }}
+                  className="border-l overflow-hidden"
+                  style={{ borderColor: accent + '18', background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(12px)' }}
                 >
                   <MoveHistory />
                 </motion.div>
@@ -121,8 +129,8 @@ function TopBtn({ onClick, children }: { onClick: () => void; children: React.Re
   return (
     <button onClick={onClick}
       className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
-        border border-white/8 hover:border-white/25 text-white/60 hover:text-white"
-      style={{ background: 'rgba(255,255,255,0.04)' }}>
+        border hover:border-white/20 text-white/55 hover:text-white/85"
+      style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
       {children}
     </button>
   );
