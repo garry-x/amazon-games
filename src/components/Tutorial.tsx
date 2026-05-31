@@ -43,7 +43,7 @@ const STEPS = [
           从亚马逊新位置，同样按皇后走法射出一支箭。箭的落点变为<strong>燃烧格 🔥</strong>，永久封锁，任何棋子都不能穿越或停留。
         </RuleItem>
         <RuleItem num="4" title="胜负判定">
-          当一方<strong>无法进行合法移动</strong>时即告失败。注意：即使有亚马逊存活，只要所有亚马逊都被封锁无法移动，也算输。
+          当一方<strong>无法进行合法移动</strong>时即告失败。双方均无法移动时判定为<strong>平局 🤝</strong>。
         </RuleItem>
       </div>
     ),
@@ -53,18 +53,40 @@ const STEPS = [
     icon: '🖱',
     content: (
       <div className="space-y-3">
-        <StepItem step="①" title="选择亚马逊" desc="点击己方亚马逊（当前回合颜色），棋子会出现高亮光环。" />
-        <StepItem step="②" title="移动到目标" desc="点击一个合法目标格（高亮显示），亚马逊移动到该位置。" />
-        <StepItem step="③" title="选择射箭目标" desc="从新位置再次点击一个合法格，箭矢射向该格并将其燃烧封锁。" />
-        <StepItem step="④" title="回合结束" desc="自动切换到对手回合。观察 HUD 面板确认当前轮到谁。" />
+        <StepItem step="①" title="选择亚马逊" desc="点击己方亚马逊，棋子高亮并显示所有合法移动目标（绿色圆点）。" />
+        <StepItem step="②" title="移动到目标" desc="点击一个合法目标格，亚马逊滑动到该位置，进入射箭阶段。" />
+        <StepItem step="③" title="射箭 🔥" desc="点击合法射箭目标，箭矢飞行动画 + 命中冲击波 + 燃烧坑洞 + 持续火焰。" />
+        <StepItem step="④" title="回合结束" desc="自动切换对手。左侧 HUD 面板显示当前回合和步数统计。" />
         <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)' }}>
-          <div className="text-xs text-white/40 mb-1">💡 提示</div>
+          <div className="text-xs text-white/40 mb-1">💡 实用提示</div>
           <ul className="text-xs text-white/60 space-y-1">
-            <li>· 鼠标悬停在格子上可以看到高亮预览</li>
-            <li>· 右侧面板可以查看完整走棋记录</li>
-            <li>· 点击顶部主题按钮可以切换视觉风格</li>
-            <li>· 点击认输按钮可以提前结束对局</li>
+            <li>· 鼠标悬停高亮预览 · 右侧面板查看走棋记录</li>
+            <li>· 顶部切换主题 (4套) · 点击认输提前结束</li>
+            <li>· iPad/平板支持触摸操作和 PWA 全屏模式</li>
+            <li>· HUD 面板点击 − 可折叠为紧凑模式</li>
           </ul>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'AI 对战',
+    icon: '🤖',
+    content: (
+      <div className="space-y-3">
+        <p>首页设置面板可以启用<strong> AI 对战模式</strong>，使用本地大模型 Qwen 35B 作为对手。</p>
+        <RuleItem num="1" title="启用 AI">
+          在首页勾选「🤖 AI 对战」开关，选择 AI 执黑或执白。
+        </RuleItem>
+        <RuleItem num="2" title="难度选择">
+          提供<strong>初级 / 中级 / 高级</strong>三档难度。高级模式 AI 会进行 3-4 步深度分析。
+        </RuleItem>
+        <RuleItem num="3" title="AI 思考">
+          AI 回合时 HUD 显示旋转加载动画「AI 思考中...」，期间棋盘不可操作。AI 走棋分三步渲染：选中 → 移动 → 射箭。
+        </RuleItem>
+        <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div className="text-xs text-white/40 mb-1">⚙ 前提</div>
+          <p className="text-xs text-white/50">需要本地运行 vLLM 服务 (http://127.0.0.1:8000/v1)，模型为 Qwen3.6-35B。AI 不可用时自动降级为随机走棋。</p>
         </div>
       </div>
     ),
