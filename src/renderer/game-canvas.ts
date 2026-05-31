@@ -219,8 +219,7 @@ export class GameCanvas {
     const themeId = this.theme.id;
 
     // Background texture
-    const bgUrl = `/textures/${themeId}-bg.png`;
-    this.loadImage(bgUrl, (img) => {
+    this.loadImage(texURL(`/textures/${themeId}-bg.png`), (img) => {
       if (this.bgSprite) { this.bgLayer.removeChild(this.bgSprite); this.bgSprite.destroy(); }
       this.bgSprite = new Sprite(Texture.from(img));
       this.bgLayer.addChild(this.bgSprite);
@@ -228,8 +227,7 @@ export class GameCanvas {
     });
 
     // Board texture
-    const boardUrl = `/textures/${themeId}-board.png`;
-    this.loadImage(boardUrl, (img) => {
+    this.loadImage(texURL(`/textures/${themeId}-board.png`), (img) => {
       if (this.boardTexSprite) { this.boardTexLayer.removeChild(this.boardTexSprite); this.boardTexSprite.destroy(); }
       this.boardTexSprite = new Sprite(Texture.from(img));
       this.boardTexLayer.addChild(this.boardTexSprite);
@@ -247,16 +245,16 @@ export class GameCanvas {
       this.redraw();
     });
     // Burn/crater texture (transparent for overlay)
-    this.loadTransparent(`/textures/${themeId}-burn.png`, (img) => {
+    this.loadTransparent(texURL(`/textures/${themeId}-burn.png`), (img) => {
       this.burnTex = Texture.from(img);
       this.redraw();
     });
     // Tile textures
-    this.loadImage(`/textures/${themeId}-tile-light.png`, (img) => {
+    this.loadImage(texURL(`/textures/${themeId}-tile-light.png`), (img) => {
       this.tileLight = Texture.from(img);
       this.redraw();
     });
-    this.loadImage(`/textures/${themeId}-tile-dark.png`, (img) => {
+    this.loadImage(texURL(`/textures/${themeId}-tile-dark.png`), (img) => {
       this.tileDark = Texture.from(img);
       this.redraw();
     });
