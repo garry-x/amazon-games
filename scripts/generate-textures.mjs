@@ -36,7 +36,7 @@ const PROMPTS = {
       negative: 'shadows, perspective, grout lines, border, people, text, light, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing white and gold Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, ivory skin tone, gold crown with lapis lazuli gems, flowing cape, dramatic studio lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on solid green background, 8k',
+      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing white and gold Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, ivory skin tone, gold crown with lapis lazuli gems, flowing cape, dramatic studio lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on solid magenta background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
@@ -66,7 +66,7 @@ const PROMPTS = {
       negative: 'shadows, perspective, grout lines, border, people, text, light, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing polished silver chainmail armor with a white surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, fair skin, iron crown with emerald gem, red cape, dramatic firelight from top-left, sharp focus on bow, product photography, centered, isolated on solid green background, 8k',
+      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing polished silver chainmail armor with a white surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, fair skin, iron crown with emerald gem, red cape, dramatic firelight from top-left, sharp focus on bow, product photography, centered, isolated on solid magenta background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
@@ -100,7 +100,7 @@ const PROMPTS = {
       negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     'piece-black': {
-      prompt: 'A sleek futuristic Amazon warrior miniature figurine, dark charcoal high-tech armor with subtle red LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on solid magenta background, 8k',
+      prompt: 'A sleek futuristic Amazon warrior miniature figurine, dark charcoal high-tech armor with subtle red LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on solid green background, 8k',
       negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     burn: {
@@ -126,7 +126,7 @@ const PROMPTS = {
       negative: 'shadows, perspective, grout, border, people, text, bright, modern, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce elven Amazon ranger miniature figurine, wearing white and green leaf-armor with delicate vine patterns, holding a drawn elegant elven longbow ready to shoot, dynamic archer stance, fair skin with elf ears, crown of woven white flowers, emerald cape, dramatic golden sunlight from top-left, sharp focus on bow, product photography, centered, isolated on solid green background, 8k',
+      prompt: 'A fierce elven Amazon ranger miniature figurine, wearing white and green leaf-armor with delicate vine patterns, holding a drawn elegant elven longbow ready to shoot, dynamic archer stance, fair skin with elf ears, crown of woven white flowers, emerald cape, dramatic golden sunlight from top-left, sharp focus on bow, product photography, centered, isolated on solid magenta background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
