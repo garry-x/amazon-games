@@ -8,6 +8,7 @@ import { GameHUD } from './GameHUD';
 import { MoveHistory } from './MoveHistory';
 import { ThemePicker } from './ThemePicker';
 import { ResultDialog } from './ResultDialog';
+import { Tutorial } from './Tutorial';
 import { useState } from 'react';
 import type { BoardSize } from '../game/types';
 import type { VariantConfig } from '../game/types';
@@ -17,6 +18,7 @@ export function Layout() {
   const { gameState, startGame, resetGame } = useGameStore();
   const theme = useUIStore(s => s.theme);
   const [showHistory, setShowHistory] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const isPlaying = gameState && gameState.phase !== 'finished';
 
@@ -88,6 +90,14 @@ export function Layout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowTutorial(true)}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200
+                border border-white/10 hover:border-white/30 text-white/70 hover:text-white"
+              style={{ background: 'rgba(255,255,255,0.05)' }}
+            >
+              📖 教程
+            </button>
             <ThemePicker />
             <button
               onClick={() => setShowHistory(!showHistory)}
@@ -160,6 +170,9 @@ export function Layout() {
         <AnimatePresence>
           {gameState?.phase === 'finished' && <ResultDialog />}
         </AnimatePresence>
+
+        {/* Tutorial dialog */}
+        <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
       </div>
     </div>
   );

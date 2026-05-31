@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore, ALL_THEMES } from '../store/ui-store';
 import { ALL_VARIANTS } from '../store/game-store';
+import { Tutorial } from './Tutorial';
 import type { BoardSize, VariantConfig } from '../game/types';
 import type { Theme } from '../themes/types';
 
@@ -20,6 +21,7 @@ export function GameSetup({ onStart }: Props) {
   const [selectedVariant, setSelectedVariant] = useState(ALL_VARIANTS[0]);
   const [selectedSize, setSelectedSize] = useState<BoardSize>(10);
   const [selectedTheme, setSelectedTheme] = useState(theme);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const accentColor = '#' + theme.background.accent.toString(16).padStart(6, '0');
 
@@ -134,18 +136,33 @@ export function GameSetup({ onStart }: Props) {
       </Section>
 
       {/* Start button */}
-      <motion.button
-        onClick={handleStart}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full py-4 rounded-xl text-xl font-bold text-white mt-6 transition-all duration-300"
-        style={{
-          background: `linear-gradient(135deg, ${accentColor}cc, ${accentColor}88)`,
-          boxShadow: `0 0 30px ${accentColor}44`,
-        }}
-      >
-        开始游戏
-      </motion.button>
+      <div className="flex gap-3">
+        <motion.button
+          onClick={() => setShowTutorial(true)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-6 py-4 rounded-xl text-lg font-bold text-white transition-all duration-300
+            border border-white/10 hover:border-white/30"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
+        >
+          📖 新手教程
+        </motion.button>
+        <motion.button
+          onClick={handleStart}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="flex-1 py-4 rounded-xl text-xl font-bold text-white transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${accentColor}cc, ${accentColor}88)`,
+            boxShadow: `0 0 30px ${accentColor}44`,
+          }}
+        >
+          开始游戏
+        </motion.button>
+      </div>
+
+      {/* Tutorial dialog */}
+      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
     </motion.div>
   );
 }
