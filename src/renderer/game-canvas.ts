@@ -1,9 +1,8 @@
 import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix, Assets } from 'pixi.js';
 
-/** Get best texture URL: WebP with PNG fallback */
+/** Get texture URL — use PNG for quality */
 function texURL(path: string): string {
-  // Try WebP first (smaller), fallback to PNG
-  return path.replace('.png', '.webp');
+  return path; // PNG — quality over size
 }
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
@@ -223,7 +222,7 @@ export class GameCanvas {
       if (this.bgSprite) { this.bgContainer.removeChild(this.bgSprite); this.bgSprite.destroy(); }
       const tex = Texture.from(img);
       this.bgSprite = new Sprite(tex);
-      this.bgSprite.alpha = 0.55;
+      this.bgSprite.alpha = 0.8;
       this.bgContainer.addChild(this.bgSprite);
       this.fitBackground();
     });

@@ -115,7 +115,7 @@ export function GameSetup({ onStart }: Props) {
                     background: active ? a + '0d' : 'rgba(255,255,255,0.02)',
                   }}>
                   <div className="relative h-20 overflow-hidden">
-                    <img src={`/textures/${t.id}-board.webp`}
+                    <img src={`/textures/${t.id}-board.png`}
                       className="w-full h-full object-cover opacity-70" alt="" loading="lazy"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   </div>

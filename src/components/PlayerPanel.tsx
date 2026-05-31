@@ -40,8 +40,8 @@ export function PlayerPanel() {
   const [quoteTimer, setQuoteTimer] = useState<ReturnType<typeof setInterval> | null>(null);
 
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
-  const whiteAvatar = `/avatars/${theme.id}-white.webp`;
-  const blackAvatar = `/avatars/${theme.id}-black.webp`;
+  const whiteAvatar = `/avatars/${theme.id}-white.png`;
+  const blackAvatar = `/avatars/${theme.id}-black.png`;
 
   // Show random quote when AI is thinking
   useEffect(() => {
