@@ -314,77 +314,80 @@ export class GameCanvas {
     const size = this.state!.boardSize;
     const cs = this.cellSize;
     const bx = this.ox, by = this.oy, bw = this.boardPx;
+    const br = Math.min(cs * 0.25, 12); // board corner radius
 
-    // — Table surface shadow —
-    const sp = cs * 0.35;
-    for (let i = 3; i >= 1; i--) {
-      g.rect(bx - sp * i / 3 - i, by - sp * i / 3 - i,
-             bw + sp * i / 3 * 2 + i * 2, bw + sp * i / 3 * 2 + i * 2);
-      g.fill({ color: 0x000000, alpha: 0.12 - i * 0.03 });
+    // — Deep, soft shadow (glass thickness illusion) —
+    for (let i = 5; i >= 1; i--) {
+      const offset = i * 1.2;
+      g.roundRect(bx - offset, by - offset + i * 0.8, bw + offset * 2, bw + offset * 2, br + i);
+      g.fill({ color: 0x000000, alpha: 0.08 - i * 0.012 });
     }
 
-    // — Outer frame —
-    const fw = cs * 0.25;
-    g.rect(bx - fw, by - fw, bw + fw * 2, bw + fw * 2);
-    g.fill({ color: this.theme.board.border, alpha: 0.5 });
+    // — Board surface base (dark, subtle) —
+    g.roundRect(bx, by, bw, bw, br);
+    g.fill({ color: 0x000000, alpha: 0.15 });
 
-    // — Board surface (semi-transparent over texture) —
-    g.rect(bx, by, bw, bw);
-    g.fill({ color: this.theme.background.surface, alpha: this.boardTexSprite ? 0.65 : 0.9 });
-    g.stroke({ color: this.theme.board.border, width: 2, alpha: 0.9 });
-
-    // — Cells — use AI tile textures when available, fallback to solid colors
+    // — Cells — texture or color at LOW opacity for subtlety —
     const hasTiles = !!(this.tileLight && this.tileDark);
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
-        const x = bx + c * cs, y = by + r * cs;
+        const x = bx + c * cs + 0.5, y = by + r * cs + 0.5;
         const isLight = (r + c) % 2 === 0;
-        g.rect(x, y, cs, cs);
+        g.rect(x, y, cs - 1, cs - 1);
         if (hasTiles) {
           const tex = isLight ? this.tileLight! : this.tileDark!;
           const m = new Matrix();
-          m.scale(cs / tex.width, cs / tex.height);
+          m.scale((cs - 1) / tex.width, (cs - 1) / tex.height);
           m.translate(x, y);
-          g.fill({ texture: tex, matrix: m });
+          g.fill({ texture: tex, matrix: m, alpha: 0.55 });
         } else {
-          g.fill({ color: isLight ? this.theme.board.light : this.theme.board.dark, alpha: 0.85 });
+          g.fill({ color: isLight ? this.theme.board.light : this.theme.board.dark, alpha: 0.5 });
         }
+        // Subtle cell border line
+        g.stroke({ color: 0x000000, width: 0.5, alpha: 0.08 });
       }
     }
 
-    // — Corner ornaments —
-    this.drawCorner(g, bx, by, cs, 1);
-    this.drawCorner(g, bx + bw, by, cs, -1);
-    this.drawCorner(g, bx, by + bw, cs, -1, 1);
-    this.drawCorner(g, bx + bw, by + bw, cs, 1, 1);
+    // — Glass overlay: subtle gradient reflection —
+    // Top highlight (light reflecting off glass surface)
+    g.rect(bx, by, bw, bw * 0.3);
+    g.fill({ color: 0xffffff, alpha: 0.04 });
+    // Bottom subtle shadow
+    g.rect(bx, by + bw * 0.7, bw, bw * 0.3);
+    g.fill({ color: 0x000000, alpha: 0.06 });
+    // Thin edge highlight (glass bevel)
+    g.roundRect(bx + 0.5, by + 0.5, bw - 1, bw - 1, br);
+    g.stroke({ color: 0xffffff, width: 1, alpha: 0.08 });
 
-    // — Coordinate labels —
-    const fs = Math.max(10, cs * 0.15);
-    const ls = { fontSize: fs, fill: this.theme.board.border, fontFamily: 'serif', fontWeight: 'bold' };
+    // — Delicate border —
+    g.roundRect(bx - 1, by - 1, bw + 2, bw + 2, br + 1);
+    g.stroke({ color: this.theme.board.border, width: 1.5, alpha: 0.5 });
+
+    // — Corner accents (small dots at corners) —
+    const dotR = cs * 0.08;
+    [[bx, by], [bx + bw, by], [bx, by + bw], [bx + bw, by + bw]].forEach(([cx, cy]) => {
+      g.circle(cx, cy, dotR);
+      g.fill({ color: this.theme.board.border, alpha: 0.35 });
+    });
+
+    // — Coordinate labels (subtle, outside the board) —
+    const fs = Math.max(10, cs * 0.14);
+    const pad = cs * 0.15;
+    const ls: any = { fontSize: fs, fill: this.theme.board.border, fontFamily: 'sans-serif', fontWeight: '500' };
     for (let i = 0; i < size; i++) {
       const cl = new Text({ text: String.fromCharCode(65 + i), style: ls });
       cl.x = bx + i * cs + cs / 2 - cl.width / 2;
-      cl.y = by - fw / 2 - cl.height / 2;
+      cl.y = by - pad - cl.height;
       g.addChild(cl);
 
       const rl = new Text({ text: String(size - i), style: ls });
-      rl.x = bx - fw / 2 - rl.width / 2;
+      rl.x = bx - pad - rl.width;
       rl.y = by + i * cs + cs / 2 - rl.height / 2;
       g.addChild(rl);
     }
 
     this.boardGfx = g;
     this.boardLayer.addChild(g);
-  }
-
-  private drawCorner(g: Graphics, cx: number, cy: number, cs: number, dx: number, dy?: number): void {
-    const s = cs * 0.18;
-    const ox = dx < 0 ? -s : 0;
-    const oy = (dy ?? dx) < 0 ? -s : 0;
-    g.moveTo(cx + ox, cy + oy + s);
-    g.lineTo(cx + ox, cy + oy);
-    g.lineTo(cx + ox + s, cy + oy);
-    g.stroke({ color: this.theme.board.border, width: 2.5, alpha: 0.7 });
   }
 
   // ========== Burned cells ==========
@@ -404,6 +407,7 @@ export class GameCanvas {
         // Use AI-generated crater texture
         const sprite = new Sprite(this.burnTex);
         sprite.anchor.set(0.5);
+        sprite.alpha = 0.75;
         sprite.width = cs * 0.88;
         sprite.height = cs * 0.88;
         sprite.x = cx;
