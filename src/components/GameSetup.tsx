@@ -23,17 +23,16 @@ const AI_LEVELS: { value: AIDifficulty; label: string; desc: string }[] = [
 ];
 
 export function GameSetup({ onStart }: Props) {
-  const { theme, setTheme } = useUIStore();
+  const { previewTheme, setPreviewTheme, setTheme } = useUIStore();
   const aiConfig = useGameStore(s => s.aiConfig);
   const setAIConfig = useGameStore(s => s.setAIConfig);
   const [variant, setVariant] = useState(ALL_VARIANTS[0]);
   const [size, setSize] = useState<BoardSize>(10);
-  const [selTheme, setSelTheme] = useState(theme);
   const [showTutorial, setShowTutorial] = useState(false);
 
-  const a = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
+  const a = useMemo(() => '#' + previewTheme.background.accent.toString(16).padStart(6, '0'), [previewTheme]);
   const validSizes = BOARD_SIZES.filter(s => variant.recommendedSizes.includes(s.size));
-  const start = () => { setTheme(selTheme); onStart(variant, size); };
+  const start = () => { setTheme(previewTheme); onStart(variant, size); };
 
   const section = "rounded-2xl border p-4 sm:p-5";
   const sectionLabel = "text-xs font-bold uppercase tracking-[0.1em] mb-3";
@@ -106,9 +105,9 @@ export function GameSetup({ onStart }: Props) {
           <div className={sectionLabel} style={{ color: a }}>视觉主题</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {ALL_THEMES.map(t => {
-              const active = selTheme.id === t.id;
+              const active = previewTheme.id === t.id;
               return (
-                <motion.button key={t.id} onClick={() => setSelTheme(t)}
+                <motion.button key={t.id} onClick={() => setPreviewTheme(t)}
                   whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                   className="rounded-xl border-2 overflow-hidden transition-colors"
                   style={{

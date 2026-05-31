@@ -25,13 +25,16 @@ export function Layout() {
   const { showSetup, setShowSetup } = useUIStore();
   const { gameState, startGame } = useGameStore();
   const theme = useUIStore(s => s.theme);
+  const previewTheme = useUIStore(s => s.previewTheme);
   const [showHistory, setShowHistory] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const isPlaying = gameState && gameState.phase !== 'finished';
-  const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
-  const bg1 = useMemo(() => '#' + theme.background.primary.toString(16).padStart(6, '0'), [theme]);
-  const bg2 = useMemo(() => '#' + theme.background.secondary.toString(16).padStart(6, '0'), [theme]);
+  // Use preview theme for background when on setup screen
+  const activeTheme = showSetup ? previewTheme : theme;
+  const accent = useMemo(() => '#' + activeTheme.background.accent.toString(16).padStart(6, '0'), [activeTheme]);
+  const bg1 = useMemo(() => '#' + activeTheme.background.primary.toString(16).padStart(6, '0'), [activeTheme]);
+  const bg2 = useMemo(() => '#' + activeTheme.background.secondary.toString(16).padStart(6, '0'), [activeTheme]);
 
   const handleStart = (v: VariantConfig, s: BoardSize) => { startGame(v, s); setShowSetup(false); };
 

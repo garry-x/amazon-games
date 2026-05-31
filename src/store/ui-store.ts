@@ -15,13 +15,17 @@ export const ALL_THEMES: Theme[] = [
 interface UIState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  previewTheme: Theme;  // live preview during setup
+  setPreviewTheme: (theme: Theme) => void;
   showSetup: boolean;
   setShowSetup: (show: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   theme: egyptianTheme,
-  setTheme: (theme) => set({ theme }),
+  setTheme: (theme) => set({ theme, previewTheme: theme }),
+  previewTheme: egyptianTheme,
+  setPreviewTheme: (previewTheme) => set({ previewTheme }),
   showSetup: true,
   setShowSetup: (show) => set({ showSetup: show }),
 }));
