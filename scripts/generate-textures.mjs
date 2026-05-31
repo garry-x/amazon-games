@@ -44,7 +44,7 @@ const PROMPTS = {
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of a small circular crater burned into ancient sandstone floor, charred black edges, glowing orange embers at the bottom, cracked stone pattern radiating outward, smoke wisps, dark pit hole, dramatic overhead lighting, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of ancient sandstone floor struck by a flaming arrow, circular scorch mark with burning golden embers, cracked sandstone radiating from impact, wisps of smoke rising, warm desert sunlight, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
@@ -74,7 +74,7 @@ const PROMPTS = {
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of a small circular crater smashed into stone castle floor, charred black edges, glowing orange embers in the pit, cracked cobblestone radiating outward, smoke rising, dark hole, dramatic firelight, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of castle stone floor hit by a fire arrow, circular burn mark with glowing orange embers, cracked cobblestone around the impact, smoke and ash, warm firelight glow, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
@@ -104,7 +104,7 @@ const PROMPTS = {
       negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     burn: {
-      prompt: 'top-down view of a small circular plasma burn crater on a dark metal floor, glowing neon cyan edges, molten metal splatter pattern radiating outward, electric sparks in the pit, dark scorched hole, futuristic sci-fi damage, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of dark metal floor struck by a plasma arrow, circular scorch with glowing neon orange edges, molten metal splatter, electric sparks at impact point, futuristic burn damage, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, nature, organic',
     },
   },
@@ -134,7 +134,7 @@ const PROMPTS = {
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of a small circular scorched crater in mossy forest floor, charred black edges, glowing orange embers, cracked earth and burnt roots radiating outward, smoke and ash, dark pit hole, dappled forest light, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of forest floor hit by a flaming arrow, circular scorch with burning embers and ash, cracked earth and charred roots, wisps of smoke, dappled forest light, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, metal',
     },
   },
