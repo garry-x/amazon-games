@@ -441,9 +441,17 @@ export class GameCanvas {
     const cs = this.cellSize;
     const c = new Container();
 
+    // Build set of cells currently being hit by a meteor (crater appears after explosion)
+    const activeTargets = new Set(
+      this.meteorAnims.map(a => `${Math.round((a.tx - this.ox) / cs)},${Math.round((a.ty - this.oy) / cs)}`)
+    );
+
     for (const b of this.state.burnedCells) {
       const cx = this.ox + b.col * cs + cs / 2;
       const cy = this.oy + b.row * cs + cs / 2;
+
+      // Skip cells still being hit by active meteor (crater appears after explosion)
+      if (activeTargets.has(`${b.col},${b.row}`)) continue;
 
       if (this.burnTex) {
         // Use AI-generated crater texture
@@ -687,7 +695,7 @@ export class GameCanvas {
     this.meteorAnims.push({
       tx, ty,
       elapsed: 0,
-      fallDuration: 0.7,  // 700ms fall
+      fallDuration: 1.2,  // 1.2s fall — slow enough to see
       color,
       particles,
       phase: 'fall',
@@ -704,7 +712,7 @@ export class GameCanvas {
     this.meteorAnims = this.meteorAnims.filter(a => {
       if (a.phase === 'impact') {
         a.elapsed += dt;
-        if (a.elapsed > 1.5) {
+        if (a.elapsed > 2.0) {
           for (const p of a.particles) poolPut(p);
           return false;
         }
@@ -779,7 +787,7 @@ export class GameCanvas {
 
       // ── EXPLOSION ──
       if (a.phase === 'impact') {
-        const t = Math.min(a.elapsed / 1.0, 1);
+        const t = Math.min(a.elapsed / 1.4, 1);
 
         // White flash (first 100ms)
         if (t < 0.15) {
@@ -790,7 +798,7 @@ export class GameCanvas {
 
         // Shockwave rings
         for (let ring = 0; ring < 3; ring++) {
-          const rt = Math.max(0, t - ring * 0.12);
+          const rt = Math.max(0, t - ring * 0.18);
           const ringR = cs * 1.2 * rt;
           g.circle(a.tx, a.ty, ringR);
           g.stroke({ color: 0xff6600, width: 3, alpha: 0.6 * (1 - rt) });
