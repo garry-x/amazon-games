@@ -3,6 +3,16 @@ import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
 
+interface ShotEffect {
+  fx: number; fy: number;   // from (amazon position)
+  tx: number; ty: number;   // to (target)
+  startTime: number;
+  duration: number;
+  color: number;
+  particles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: number; size: number }[];
+  done: boolean;
+}
+
 export class GameCanvas {
   private app!: Application;
   private bgLayer!: Container;
@@ -24,6 +34,7 @@ export class GameCanvas {
   private boardTexSprite: Sprite | null = null;
   private burnGfx: Graphics | null = null;
   private pieceSprites: Map<string, Container> = new Map();
+  private shotEffects: ShotEffect[] = [];
   private initialized = false;
   private pendingState: GameState | null = null;
   private resizeObs: ResizeObserver | null = null;
@@ -414,10 +425,19 @@ export class GameCanvas {
     if (this.state.moveHistory.length > 0) {
       const last = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(last.from, last.to);
-      this.drawShotArrow(last.to, last.arrow);
+      // Trigger animated shot effect
+      this.startShotEffect(last.to, last.arrow);
     }
   }
 
+  /**
+   * Create a 3D piece with:
+   *  - Pedestal base (wider, flatter)
+   *  - Spherical body with specular highlight
+   *  - Bevel rim ring
+   *  - Detailed crown ornament
+   *  - Drop shadow + glow halo
+   */
   private createPiece(
     amazon: { id: string; player: 'white' | 'black'; position: Position },
   ): Container {
@@ -425,59 +445,111 @@ export class GameCanvas {
     const cs = this.cellSize;
     const cx = this.ox + amazon.position.col * cs + cs / 2;
     const cy = this.oy + amazon.position.row * cs + cs / 2;
-    const r = cs * 0.38;
+    const R = cs * 0.38; // outer radius
 
-    const isWhite = amazon.player === 'white';
-    const fill = isWhite ? this.theme.pieces.white : this.theme.pieces.black;
-    const glow = isWhite ? this.theme.pieces.whiteGlow : this.theme.pieces.blackGlow;
-    const shadow = isWhite ? this.theme.pieces.whiteShadow : this.theme.pieces.blackShadow;
+    const white = amazon.player === 'white';
+    const base = white ? this.theme.pieces.white : this.theme.pieces.black;
+    const accent = white ? this.theme.pieces.whiteGlow : this.theme.pieces.blackGlow;
+    const dark = white ? this.theme.pieces.whiteShadow : this.theme.pieces.blackShadow;
 
-    const sd = cs * 0.04;
-    const shade = new Graphics();
-    shade.circle(sd, sd * 1.5, r);
-    shade.fill({ color: 0x000000, alpha: 0.25 });
+    // ── 1. Drop shadow (offset ellipse) ──
+    const sd = cs * 0.05;
+    const shadow = new Graphics();
+    shadow.ellipse(sd, sd * 1.6, R * 1.05, R * 0.45);
+    shadow.fill({ color: 0x000000, alpha: 0.3 });
 
-    const halo = new Graphics();
-    halo.circle(0, 0, r + 4);
-    halo.fill({ color: glow, alpha: 0.25 });
+    // ── 2. Pedestal base ──
+    const baseR = R * 0.85;
+    const pedestal = new Graphics();
+    // Bottom tier
+    pedestal.ellipse(0, R * 0.18, baseR, R * 0.3);
+    pedestal.fill({ color: dark, alpha: 0.7 });
+    // Top tier
+    pedestal.ellipse(0, R * 0.06, baseR * 0.85, R * 0.22);
+    pedestal.fill({ color: accent, alpha: 0.25 });
+    pedestal.ellipse(0, R * 0.06, baseR * 0.85, R * 0.22);
+    pedestal.stroke({ color: dark, width: 1, alpha: 0.3 });
 
+    // ── 3. Main body (spherical gradient via layered circles) ──
     const body = new Graphics();
-    body.circle(0, 0, r);
-    body.fill({ color: fill });
-    body.circle(-r * 0.25, -r * 0.25, r * 0.55);
-    body.fill({ color: 0xffffff, alpha: 0.2 });
-    body.circle(0, 0, r);
-    body.stroke({ color: shadow, width: 1.5, alpha: 0.5 });
+    // Back hemisphere (darker)
+    body.circle(0, -R * 0.04, R);
+    body.fill({ color: dark, alpha: 0.3 });
+    // Front hemisphere (base color)
+    body.circle(0, -R * 0.02, R * 0.98);
+    body.fill({ color: base });
+    // Core highlight (specular)
+    body.circle(-R * 0.3, -R * 0.32, R * 0.47);
+    body.fill({ color: 0xffffff, alpha: 0.28 });
+    // Secondary highlight
+    body.circle(-R * 0.18, -R * 0.2, R * 0.32);
+    body.fill({ color: 0xffffff, alpha: 0.12 });
+    // Bottom shadow (ambient occlusion)
+    body.ellipse(0, R * 0.35, R * 0.7, R * 0.2);
+    body.fill({ color: 0x000000, alpha: 0.12 });
+    // Rim highlight
+    body.circle(0, 0, R);
+    body.stroke({ color: 0xffffff, width: 1.2, alpha: 0.15 });
 
+    // ── 4. Bevel ring ──
     const ring = new Graphics();
-    ring.circle(0, 0, r * 0.68);
-    ring.stroke({ color: glow, width: Math.max(1, cs * 0.025), alpha: 0.4 });
+    ring.circle(0, -R * 0.02, R * 0.72);
+    ring.stroke({ color: accent, width: Math.max(1.5, cs * 0.03), alpha: 0.35 });
+    ring.circle(0, -R * 0.02, R * 0.72 + 1);
+    ring.stroke({ color: dark, width: 0.8, alpha: 0.2 });
 
+    // ── 5. Crown ──
+    const s = R * 0.44;
     const crown = new Graphics();
-    const s = r * 0.42;
-    crown.moveTo(-s, s * 0.25);
-    crown.lineTo(-s * 0.7, -s * 0.45);
-    crown.lineTo(-s * 0.3, s * 0.08);
-    crown.lineTo(0, -s * 0.75);
-    crown.lineTo(s * 0.3, s * 0.08);
-    crown.lineTo(s * 0.7, -s * 0.45);
-    crown.lineTo(s, s * 0.25);
+    crown.moveTo(-s, s * 0.2);
+    crown.lineTo(-s * 0.7, -s * 0.5);
+    crown.lineTo(-s * 0.25, s * 0.05);
+    crown.lineTo(0, -s * 0.8);
+    crown.lineTo(s * 0.25, s * 0.05);
+    crown.lineTo(s * 0.7, -s * 0.5);
+    crown.lineTo(s, s * 0.2);
     crown.closePath();
-    crown.fill({ color: glow, alpha: 0.45 });
-    crown.stroke({ color: fill, width: 0.5, alpha: 0.6 });
+    // Crown fill with gradient effect
+    crown.fill({ color: accent, alpha: 0.55 });
+    // Crown specular
+    crown.moveTo(0, -s * 0.8);
+    crown.lineTo(s * 0.25, s * 0.05);
+    crown.lineTo(0, -s * 0.1);
+    crown.lineTo(-s * 0.25, s * 0.05);
+    crown.closePath();
+    crown.fill({ color: 0xffffff, alpha: 0.15 });
+    crown.moveTo(-s, s * 0.2);
+    crown.lineTo(-s * 0.7, -s * 0.5);
+    crown.lineTo(-s * 0.25, s * 0.05);
+    crown.lineTo(0, -s * 0.8);
+    crown.lineTo(s * 0.25, s * 0.05);
+    crown.lineTo(s * 0.7, -s * 0.5);
+    crown.lineTo(s, s * 0.2);
+    crown.closePath();
+    crown.stroke({ color: base, width: 1, alpha: 0.5 });
 
+    // ── 6. Glow halo ──
+    const halo = new Graphics();
+    halo.circle(0, 0, R + 5);
+    halo.fill({ color: accent, alpha: 0.22 });
+    halo.circle(0, 0, R + 3);
+    halo.fill({ color: accent, alpha: 0.1 });
+
+    // ── 7. Selection indicator ──
     if (this.state?.selectedAmazonId === amazon.id) {
       const sel = new Graphics();
-      sel.circle(0, 0, r + 6);
+      sel.circle(0, 0, R + 8);
       sel.stroke({ color: 0x4ecdc4, width: 2.5, alpha: 0.9 });
-      sel.circle(0, 0, r + 9);
-      sel.stroke({ color: 0x4ecdc4, width: 1, alpha: 0.35 });
+      sel.circle(0, 0, R + 11);
+      sel.stroke({ color: 0x4ecdc4, width: 1, alpha: 0.3 });
       c.addChild(sel);
       (c as any)._selRing = sel;
     }
 
-    c.addChild(shade);
-    c.addChild(halo);
+    // Assembly order: back → front
+    c.addChild(shadow);   // bottom
+    c.addChild(halo);     // glow behind
+    c.addChild(pedestal);
     c.addChild(body);
     c.addChild(ring);
     c.addChild(crown);
@@ -500,54 +572,149 @@ export class GameCanvas {
     const fx = this.ox + from.col * cs + cs / 2, fy = this.oy + from.row * cs + cs / 2;
     const tx = this.ox + to.col * cs + cs / 2, ty = this.oy + to.row * cs + cs / 2;
 
+    // Glow trail
     g.moveTo(fx, fy);
     g.lineTo(tx, ty);
-    g.stroke({ color: this.theme.effects.arrowTrail, width: 5, alpha: 0.15 });
+    g.stroke({ color: this.theme.effects.arrowTrail, width: 6, alpha: 0.12 });
 
+    // Dashed move line
     const dx = tx - fx, dy = ty - fy;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.max(Math.floor(dist / 7), 2);
+    const steps = Math.max(Math.floor(dist / 6), 2);
     for (let i = 0; i < steps; i += 2) {
       g.moveTo(fx + dx * i / steps, fy + dy * i / steps);
       g.lineTo(fx + dx * Math.min(i + 1, steps) / steps, fy + dy * Math.min(i + 1, steps) / steps);
     }
-    g.stroke({ color: this.theme.effects.arrowTrail, width: 2.5, alpha: 0.5 });
+    g.stroke({ color: this.theme.effects.arrowTrail, width: 2.5, alpha: 0.45 });
 
     this.effectLayer.addChild(g);
-    setTimeout(() => { this.effectLayer.removeChild(g); g.destroy(); }, 2000);
+    setTimeout(() => { this.effectLayer.removeChild(g); g.destroy(); }, 3000);
   }
 
-  private drawShotArrow(from: Position, to: Position): void {
-    const g = new Graphics();
+  // ========== Animated shot system ==========
+
+  /** Launch a shot animation from `from` position to `to` target. */
+  private startShotEffect(from: Position, to: Position): void {
     const cs = this.cellSize;
-    const fx = this.ox + from.col * cs + cs / 2, fy = this.oy + from.row * cs + cs / 2;
-    const tx = this.ox + to.col * cs + cs / 2, ty = this.oy + to.row * cs + cs / 2;
+    const fx = this.ox + from.col * cs + cs / 2;
+    const fy = this.oy + from.row * cs + cs / 2;
+    const tx = this.ox + to.col * cs + cs / 2;
+    const ty = this.oy + to.row * cs + cs / 2;
 
     const dx = tx - fx, dy = ty - fy;
     const dist = Math.sqrt(dx * dx + dy * dy);
-
-    g.moveTo(fx, fy);
-    g.lineTo(tx, ty);
-    g.stroke({ color: this.theme.effects.arrow, width: 6, alpha: 0.12 });
-
-    const steps = Math.max(Math.floor(dist / 5), 2);
-    for (let i = 0; i < steps; i += 2) {
-      g.moveTo(fx + dx * i / steps, fy + dy * i / steps);
-      g.lineTo(fx + dx * Math.min(i + 1, steps) / steps, fy + dy * Math.min(i + 1, steps) / steps);
-    }
-    g.stroke({ color: this.theme.effects.arrow, width: 3, alpha: 0.6 });
-
     const angle = Math.atan2(dy, dx);
-    const hl = Math.max(8, cs * 0.14), ha = Math.PI / 4.5;
-    g.moveTo(tx, ty);
-    g.lineTo(tx - hl * Math.cos(angle - ha), ty - hl * Math.sin(angle - ha));
-    g.lineTo(tx - hl * 0.3 * Math.cos(angle), ty - hl * 0.3 * Math.sin(angle));
-    g.lineTo(tx - hl * Math.cos(angle + ha), ty - hl * Math.sin(angle + ha));
-    g.closePath();
-    g.fill({ color: this.theme.effects.arrow, alpha: 0.8 });
+
+    // Generate impact particles
+    const particles: ShotEffect['particles'] = [];
+    const pColor = this.theme.effects.particle;
+    for (let i = 0; i < 16; i++) {
+      const a = angle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.8;
+      const speed = 40 + Math.random() * 100;
+      particles.push({
+        x: tx, y: ty,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        life: 0.4 + Math.random() * 0.5,
+        maxLife: 0.4 + Math.random() * 0.5,
+        color: Math.random() > 0.5 ? pColor : this.theme.effects.burnGlow,
+        size: 3 + Math.random() * 6,
+      });
+    }
+
+    this.shotEffects.push({
+      fx, fy, tx, ty,
+      startTime: performance.now(),
+      duration: Math.max(300, Math.min(600, dist * 1.5)),
+      color: this.theme.effects.arrow,
+      particles,
+      done: false,
+    });
+  }
+
+  /** Render all active shot animations (called from ticker). */
+  private renderShotEffects(): void {
+    const now = performance.now();
+    // Use a single Graphics per frame for all effects
+    if (this.shotEffects.length === 0) return;
+    const g = new Graphics();
+
+    for (const fx of this.shotEffects) {
+      const elapsed = now - fx.startTime;
+      const t = Math.min(elapsed / fx.duration, 1);
+      // Ease-out
+      const et = 1 - (1 - t) * (1 - t);
+
+      // Arrow head position interpolated along path
+      const hx = fx.fx + (fx.tx - fx.fx) * et;
+      const hy = fx.fy + (fx.ty - fx.fy) * et;
+
+      // Glow trail behind the arrow head
+      const trailLen = 0.3;
+      const tStart = Math.max(0, et - trailLen);
+      const sx = fx.fx + (fx.tx - fx.fx) * tStart;
+      const sy = fx.fy + (fx.ty - fx.fy) * tStart;
+
+      // Trail glow (wide)
+      g.moveTo(sx, sy);
+      g.lineTo(hx, hy);
+      g.stroke({ color: fx.color, width: 6, alpha: 0.15 * (1 - t * 0.3) });
+
+      // Trail core
+      g.moveTo(sx, sy);
+      g.lineTo(hx, hy);
+      g.stroke({ color: fx.color, width: 2.5, alpha: 0.55 * (1 - t * 0.3) });
+
+      // Arrow head at current position
+      const angle = Math.atan2(fx.ty - fx.fy, fx.tx - fx.fx);
+      const hl = Math.max(7, this.cellSize * 0.12);
+      const ha = Math.PI / 4.5;
+      g.moveTo(hx, hy);
+      g.lineTo(hx - hl * Math.cos(angle - ha), hy - hl * Math.sin(angle - ha));
+      g.lineTo(hx - hl * 0.3 * Math.cos(angle), hy - hl * 0.3 * Math.sin(angle));
+      g.lineTo(hx - hl * Math.cos(angle + ha), hy - hl * Math.sin(angle + ha));
+      g.closePath();
+      g.fill({ color: fx.color, alpha: 0.7 + 0.3 * (1 - t) });
+
+      // Impact burst at target (only when close enough)
+      if (et > 0.6) {
+        const burstProgress = (et - 0.6) / 0.4;
+        const br = burstProgress * this.cellSize * 0.35;
+        g.circle(fx.tx, fx.ty, br);
+        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.12 * (1 - burstProgress * 0.5) });
+        g.circle(fx.tx, fx.ty, br * 0.6);
+        g.stroke({ color: this.theme.effects.arrow, width: 2, alpha: 0.4 * (1 - burstProgress) });
+      }
+
+      // Update particles
+      const dt = Math.min(elapsed / 1000, 0.05);
+      for (const p of fx.particles) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.life -= dt;
+      }
+      // Draw particles
+      for (const p of fx.particles) {
+        if (p.life <= 0) continue;
+        const alpha = p.life / p.maxLife;
+        g.circle(p.x, p.y, p.size * alpha);
+        g.fill({ color: p.color, alpha: alpha * 0.7 });
+      }
+    }
 
     this.effectLayer.addChild(g);
-    setTimeout(() => { this.effectLayer.removeChild(g); g.destroy(); }, 2000);
+    // Clean up after the frame
+    setTimeout(() => {
+      this.effectLayer.removeChild(g);
+      g.destroy();
+      // Remove completed effects after render
+      this.shotEffects = this.shotEffects.filter(fx => {
+        const elapsed = performance.now() - fx.startTime;
+        return elapsed < fx.duration + 800; // extra time for particles
+      });
+    }, 50);
   }
 
   // ========== Interaction ==========
@@ -610,16 +777,22 @@ export class GameCanvas {
 
   private tick(): void {
     const now = performance.now();
+
+    // Piece glow pulse
     for (const [id, c] of this.pieceSprites) {
       const am = this.state?.amazons.find(a => a.id === id);
       if (!am) continue;
       const phase = (c as any)._pulsePhase || 0;
       if (am.player === this.state?.currentPlayer) {
+        // Halo is currently child[1] (after shadow)
         const halo = c.children[1] as Graphics | undefined;
-        if (halo) halo.alpha = 0.2 + Math.sin(now / 1000 * 2.5 + phase) * 0.1;
+        if (halo) halo.alpha = 0.18 + Math.sin(now / 1000 * 2.5 + phase) * 0.08;
       }
       const sel = (c as any)._selRing as Graphics | undefined;
-      if (sel) sel.alpha = 0.7 + Math.sin(now / 1000 * 3) * 0.3;
+      if (sel) sel.alpha = 0.65 + Math.sin(now / 1000 * 3.5) * 0.35;
     }
+
+    // Render animated shot effects
+    this.renderShotEffects();
   }
 }
