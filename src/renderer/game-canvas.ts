@@ -1,4 +1,10 @@
-import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix, Assets } from 'pixi.js';
+
+/** Get best texture URL: WebP with PNG fallback */
+function texURL(path: string): string {
+  // Try WebP first (smaller), fallback to PNG
+  return path.replace('.png', '.webp');
+}
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
@@ -145,9 +151,9 @@ export class GameCanvas {
     this.initialized = true;
 
     // Load VFX textures (shared across themes)
-    this.loadImage('/vfx/fireball.png', (img) => { this.vfxFireball = Texture.from(img); });
-    this.loadImage('/vfx/explosion.png', (img) => { this.vfxExplosion = Texture.from(img); });
-    this.loadImage('/vfx/smoke.png', (img) => { this.vfxSmoke = Texture.from(img); });
+    this.loadImage(texURL('/vfx/fireball.png'), (img) => { this.vfxFireball = Texture.from(img); });
+    this.loadImage(texURL('/vfx/explosion.png'), (img) => { this.vfxExplosion = Texture.from(img); });
+    this.loadImage(texURL('/vfx/smoke.png'), (img) => { this.vfxSmoke = Texture.from(img); });
 
     // Load theme textures
     this.loadThemeTextures();
@@ -260,7 +266,16 @@ export class GameCanvas {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => onLoad(img);
-    img.onerror = () => {};
+    img.onerror = () => {
+      // WebP fallback → PNG
+      if (url.endsWith('.webp')) {
+        const pngUrl = url.replace('.webp', '.png');
+        const fallback = new Image();
+        fallback.crossOrigin = 'anonymous';
+        fallback.onload = () => onLoad(fallback);
+        fallback.src = pngUrl;
+      }
+    };
     img.src = url;
   }
 
