@@ -27,15 +27,13 @@ function poolPut(p: Particle) {
 }
 
 // ── Animation state ──
-interface ShotAnim {
-  fx: number; fy: number;
-  tx: number; ty: number;
+interface MeteorAnim {
+  tx: number; ty: number;     // target cell center
   elapsed: number;
-  bowDuration: number;   // draw phase
-  flyDuration: number;    // arrow flight
+  fallDuration: number;        // meteor descent
   color: number;
   particles: Particle[];
-  phase: 'bow' | 'fly' | 'impact' | 'done';
+  phase: 'fall' | 'impact' | 'done';
 }
 
 export class GameCanvas {
@@ -59,8 +57,8 @@ export class GameCanvas {
   private boardTexSprite: Sprite | null = null;
   private burnGfx: Container | null = null;
   private pieceSprites: Map<string, Container> = new Map();
-  private shotAnims: ShotAnim[] = [];
-  private shotGfx: Graphics | null = null;
+  private meteorAnims: MeteorAnim[] = [];
+  private meteorGfx: Graphics | null = null;
   private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
   private fireGfx: Graphics | null = null;
   private lastRenderedMoveCount = 0;
@@ -567,7 +565,7 @@ export class GameCanvas {
     if (this.state.moveHistory.length > this.lastRenderedMoveCount) {
       const last = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(last.from, last.to);
-      this.startShotEffect(last.to, last.arrow);
+      this.startMeteorEffect(last.to, last.arrow);
       this.lastRenderedMoveCount = this.state.moveHistory.length;
     }
   }
@@ -661,57 +659,52 @@ export class GameCanvas {
 
   // ========== Animated shot system ==========
 
-  private startShotEffect(from: Position, to: Position): void {
+  // ========== Meteor strike animation ==========
+
+  private startMeteorEffect(from: Position, to: Position): void {
     const cs = this.cellSize;
-    const fx = this.ox + from.col * cs + cs / 2;
-    const fy = this.oy + from.row * cs + cs / 2;
     const tx = this.ox + to.col * cs + cs / 2;
     const ty = this.oy + to.row * cs + cs / 2;
-
-    const dist = Math.sqrt((tx - fx) ** 2 + (ty - fy) ** 2);
     const color = this.theme.effects.arrow;
     const pColor = this.theme.effects.particle;
     const burnColor = this.theme.effects.burnGlow;
 
-    // Pre-spawn particles for impact burst
+    // Pre-spawn 100 particles for the big explosion
     const particles: Particle[] = [];
-    const shootAngle = Math.atan2(ty - fy, tx - fx);
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 100; i++) {
       const p = poolGet();
       p.x = tx; p.y = ty;
-      const a = shootAngle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.9;
-      const speed = 80 + Math.random() * 280;
-      p.vx = Math.cos(a) * speed;
-      p.vy = Math.sin(a) * speed;
-      p.life = 0; p.maxLife = 0.6 + Math.random() * 0.8;
-      p.color = i < 20 ? color : (i < 38 ? pColor : burnColor);
-      p.size = 3 + Math.random() * 8;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 100 + Math.random() * 350;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed - Math.random() * 100; // bias upward
+      p.life = 0; p.maxLife = 0.5 + Math.random() * 0.9;
+      p.color = i < 30 ? 0xffdd00 : (i < 55 ? color : (i < 75 ? pColor : burnColor));
+      p.size = 3 + Math.random() * 10;
       particles.push(p);
     }
 
-    this.shotAnims.push({
-      fx, fy, tx, ty,
+    this.meteorAnims.push({
+      tx, ty,
       elapsed: 0,
-      bowDuration: 0.22,                     // draw flash
-      flyDuration: Math.max(350, Math.min(650, dist * 1.8)),
+      fallDuration: 0.7,  // 700ms fall
       color,
       particles,
-      phase: 'bow',
+      phase: 'fall',
     });
   }
 
-  private renderShotEffects(dt: number): void {
-    // Create persistent Graphics if not exists
-    if (!this.shotGfx) {
-      this.shotGfx = new Graphics();
-      this.effectLayer.addChild(this.shotGfx);
+  private renderMeteorEffects(dt: number): void {
+    if (!this.meteorGfx) {
+      this.meteorGfx = new Graphics();
+      this.effectLayer.addChild(this.meteorGfx);
     }
 
-    // Clean up completed animations
-    this.shotAnims = this.shotAnims.filter(a => {
+    // Clean completed
+    this.meteorAnims = this.meteorAnims.filter(a => {
       if (a.phase === 'impact') {
         a.elapsed += dt;
-        if (a.elapsed > 1.2) {
+        if (a.elapsed > 1.5) {
           for (const p of a.particles) poolPut(p);
           return false;
         }
@@ -719,88 +712,92 @@ export class GameCanvas {
       return true;
     });
 
-    // Destroy Graphics when all done
-    if (this.shotAnims.length === 0) {
-      if (this.shotGfx) {
-        this.effectLayer.removeChild(this.shotGfx);
-        this.shotGfx.destroy();
-        this.shotGfx = null;
+    if (this.meteorAnims.length === 0) {
+      if (this.meteorGfx) {
+        this.effectLayer.removeChild(this.meteorGfx);
+        this.meteorGfx.destroy();
+        this.meteorGfx = null;
       }
       return;
     }
 
-    const g = this.shotGfx;
+    const g = this.meteorGfx;
     g.clear();
     const cs = this.cellSize;
 
-    for (const a of this.shotAnims) {
+    for (const a of this.meteorAnims) {
       a.elapsed += dt;
 
-      // ── BOW DRAW ──
-      if (a.phase === 'bow') {
-        const t = Math.min(a.elapsed / a.bowDuration, 1);
-        const ringR = cs * 0.6 * Ease.outCubic(t);
-        // Bright white shockwave ring
-        g.circle(a.fx, a.fy, ringR);
-        g.stroke({ color: 0xffffff, width: 4, alpha: 0.9 * (1 - t) });
-        // Secondary colored ring
-        g.circle(a.fx, a.fy, ringR * 1.5);
-        g.stroke({ color: a.color, width: 3, alpha: 0.6 * (1 - t) });
-        // Center flash
-        g.circle(a.fx, a.fy, cs * 0.2);
+      // ── METEOR FALL ──
+      if (a.phase === 'fall') {
+        const t = Math.min(a.elapsed / a.fallDuration, 1);
+        const et = Ease.inQuad(t); // accelerate downward
+        const topY = -cs * 2; // start above screen
+        const my = topY + (a.ty - topY) * et;
+        const mx = a.tx + Math.sin(t * Math.PI * 2) * cs * 0.3; // slight wobble
+
+        // Meteor tail (trail from top to current position)
+        const trailLen = 0.3;
+        const ts = Math.max(0, et - trailLen);
+        const sy = topY + (a.ty - topY) * ts;
+        const sx = a.tx + Math.sin(ts * Math.PI * 2) * cs * 0.3;
+
+        // Wide flame trail
+        g.moveTo(sx, sy);
+        g.lineTo(mx, my);
+        g.stroke({ color: 0xff6600, width: cs * 0.5, alpha: 0.5 });
+
+        // Inner bright trail
+        g.moveTo(sx, sy);
+        g.lineTo(mx, my);
+        g.stroke({ color: 0xffdd00, width: cs * 0.2, alpha: 0.7 });
+
+        // Meteor head (bright fireball)
+        const headR = cs * 0.25;
+        // Outer glow
+        g.circle(mx, my, headR * 2);
+        g.fill({ color: 0xff6600, alpha: 0.3 });
+        // Mid glow
+        g.circle(mx, my, headR * 1.3);
+        g.fill({ color: 0xff9900, alpha: 0.5 });
+        // Core
+        g.circle(mx, my, headR * 0.7);
+        g.fill({ color: 0xffdd00, alpha: 0.8 });
+        // White hot center
+        g.circle(mx, my, headR * 0.3);
         g.fill({ color: 0xffffff, alpha: 0.9 });
-        if (t >= 1) { a.phase = 'fly'; a.elapsed = 0; }
-      }
 
-      // ── ARROW FLIGHT ──
-      if (a.phase === 'fly') {
-        const t = Math.min(a.elapsed / a.flyDuration, 1);
-        const et = Ease.inQuad(t);
-        const hx = a.fx + (a.tx - a.fx) * et;
-        const hy = a.fy + (a.ty - a.fy) * et;
-        const angle = Math.atan2(a.ty - a.fy, a.tx - a.fx);
-        const hl = Math.max(10, cs * 0.14);
-
-        // Bright glow behind arrow
-        g.moveTo(a.fx, a.fy);
-        g.lineTo(hx, hy);
-        g.stroke({ color: 0xffffff, width: 10, alpha: 0.35 });
-
-        // Core colored trail
-        g.moveTo(a.fx, a.fy);
-        g.lineTo(hx, hy);
-        g.stroke({ color: a.color, width: 4, alpha: 0.85 });
-
-        // Arrow head (large filled triangle)
-        const ha = Math.PI / 4.5;
-        g.moveTo(hx, hy);
-        g.lineTo(hx - hl * 1.2 * Math.cos(angle - ha), hy - hl * 1.2 * Math.sin(angle - ha));
-        g.lineTo(hx - hl * 0.25 * Math.cos(angle), hy - hl * 0.25 * Math.sin(angle));
-        g.lineTo(hx - hl * 1.2 * Math.cos(angle + ha), hy - hl * 1.2 * Math.sin(angle + ha));
-        g.closePath();
-        g.fill({ color: a.color, alpha: 1.0 });
-        g.stroke({ color: 0xffffff, width: 2, alpha: 0.6 });
+        // Screen shake hint (brief flash when close)
+        if (et > 0.8) {
+          const flashAlpha = (et - 0.8) / 0.2 * 0.3;
+          g.rect(this.ox - 10, this.oy - 10, this.boardPx + 20, this.boardPx + 20);
+          g.fill({ color: 0xff8800, alpha: flashAlpha });
+        }
 
         if (t >= 1) { a.phase = 'impact'; a.elapsed = 0; }
       }
 
-      // ── IMPACT ──
+      // ── EXPLOSION ──
       if (a.phase === 'impact') {
-        const t = Math.min(a.elapsed / 0.8, 1);
-        // Double ring burst
-        const ringR1 = cs * 0.6 * t;
-        g.circle(a.tx, a.ty, ringR1);
-        g.stroke({ color: 0xffffff, width: 4, alpha: 0.8 * (1 - t) });
-        const ringR2 = cs * 0.45 * t;
-        g.circle(a.tx, a.ty, ringR2);
-        g.stroke({ color: a.color, width: 2.5, alpha: 0.6 * (1 - t) });
-        // Filled glow
-        g.circle(a.tx, a.ty, ringR1 * 0.5);
-        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.25 * (1 - t) });
+        const t = Math.min(a.elapsed / 1.0, 1);
 
-        // Activate & update particles
-        if (a.elapsed < 0.1) {
-          // First frame of impact — activate all
+        // White flash (first 100ms)
+        if (t < 0.15) {
+          const ft = t / 0.15;
+          g.circle(a.tx, a.ty, cs * 0.8 * ft);
+          g.fill({ color: 0xffffff, alpha: 0.9 * (1 - ft) });
+        }
+
+        // Shockwave rings
+        for (let ring = 0; ring < 3; ring++) {
+          const rt = Math.max(0, t - ring * 0.12);
+          const ringR = cs * 1.2 * rt;
+          g.circle(a.tx, a.ty, ringR);
+          g.stroke({ color: 0xff6600, width: 3, alpha: 0.6 * (1 - rt) });
+        }
+
+        // Debris particles (activate on first frame)
+        if (a.elapsed < 0.08) {
           for (const p of a.particles) { p.life = p.maxLife; p.maxLife = -1; }
         }
         for (const p of a.particles) {
@@ -808,16 +805,19 @@ export class GameCanvas {
           const pdt = Math.min(dt, 0.05);
           p.x += p.vx * pdt;
           p.y += p.vy * pdt;
-          p.vx *= 0.92;
-          p.vy *= 0.92;
+          p.vx *= 0.91;
+          p.vy *= 0.91;
+          p.vy += 80 * pdt; // gravity
           p.life -= pdt;
           if (p.life <= 0) continue;
           const alpha = p.life / Math.abs(p.maxLife);
-          g.circle(p.x, p.y, Math.max(3, p.size * (0.5 + alpha * 0.5)));
-          g.fill({ color: p.color, alpha: alpha * 0.85 });
-          // Particle glow
-          g.circle(p.x, p.y, Math.max(5, p.size * (0.5 + alpha * 0.5) * 1.8));
-          g.stroke({ color: 0xffffff, width: 1, alpha: alpha * 0.15 });
+          const size = Math.max(2, p.size * (0.4 + alpha * 0.6));
+          g.circle(p.x, p.y, size);
+          g.fill({ color: p.color, alpha: alpha * 0.8 });
+          if (size > 4) {
+            g.circle(p.x, p.y, size * 2);
+            g.stroke({ color: 0xffffff, width: 1, alpha: alpha * 0.1 });
+          }
         }
       }
     }
@@ -976,7 +976,7 @@ export class GameCanvas {
 
     // Render animated shot effects with deltaTime
     const dt = this.app.ticker.deltaMS / 1000;
-    this.renderShotEffects(dt);
+    this.renderMeteorEffects(dt);
     this.renderFireParticles(dt);
   }
 }
