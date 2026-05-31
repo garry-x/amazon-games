@@ -141,13 +141,14 @@ const PROMPTS = {
 };
 
 const SIZES = {
-  bg: { width: 3840, height: 2160 },
-  board: { width: 4096, height: 4096 },
+  bg: { width: 2048, height: 1152 },
+  board: { width: 2048, height: 2048 },
   'piece-white': { width: 1024, height: 1024 },
   'piece-black': { width: 1024, height: 1024 },
   burn: { width: 1024, height: 1024 },
   'tile-light': { width: 1024, height: 1024 },
   'tile-dark': { width: 1024, height: 1024 },
+  avatar: { width: 512, height: 512 },
 };
 
 // ── ComfyUI API helpers ──────────────────────────────────────
@@ -222,7 +223,7 @@ async function generateOne(themeId, type) {
     prompt: prompts[type].prompt,
     width: size.width,
     height: size.height,
-    steps: 20,
+    steps: 28,
     guidance: 3.5,
     seed,
   });
