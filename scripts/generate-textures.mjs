@@ -84,24 +84,24 @@ const PROMPTS = {
       negative: 'blurry, low quality, people, text, watermark, daylight, natural',
     },
     board: {
-      prompt: 'top-down orthographic view of a complete futuristic game board, alternating brushed titanium and dark carbon fiber square panels in a 10x10 checkerboard grid, glowing neon cyan grid lines, chrome border frame, ambient blue tech glow evenly distributed, spaceship floor, ultra detailed, seamless tileable texture, 8k',
-      negative: 'blurry, perspective angle, shadows, people, text, organic, wooden, 3d depth',
+      prompt: 'top-down orthographic view of a clean minimalist sci-fi game board, alternating light silver-gray and dark charcoal square panels in a 10x10 checkerboard grid, subtle blue ambient glow, sleek dark border frame, smooth futuristic floor surface, even studio lighting, ultra detailed, seamless, 8k',
+      negative: 'blurry, perspective, neon, rainbow, cluttered, text, organic, shadows, 3d depth, distorted',
     },
     'tile-light': {
-      prompt: 'top-down view of a single square brushed titanium metal panel with subtle circuit trace texture, futuristic sci-fi floor, cool silver-gray color, smooth metallic surface with micro etching details, seamless tileable, ultra detailed, 8k, game texture asset',
-      negative: 'shadows, perspective, grout, border, people, text, warm, organic, 3d',
+      prompt: 'top-down view of a single square brushed silver metal panel, minimalist sci-fi floor, neutral cool gray color, smooth matte metallic surface, subtle micro-grain texture, clean and simple, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, color, neon, pattern, border, warm, organic, 3d',
     },
     'tile-dark': {
-      prompt: 'top-down view of a single square dark carbon fiber panel with subtle hexagonal weave pattern, futuristic sci-fi floor, deep charcoal black color, matte surface with micro texture details, seamless tileable, ultra detailed, 8k, game texture asset',
-      negative: 'shadows, perspective, grout, border, people, text, bright, organic, 3d',
+      prompt: 'top-down view of a single square dark charcoal metal panel, minimalist sci-fi floor, deep neutral gray color, smooth matte surface, subtle micro-grain texture, clean and simple, seamless tileable, ultra detailed, 8k, game texture asset',
+      negative: 'shadows, perspective, color, neon, pattern, border, bright, organic, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce cyberpunk Amazon sniper miniature figurine, wearing white and cyan high-tech combat armor with neon glow accents, holding a futuristic energy bow drawn ready to fire, dynamic combat stance, pale skin, holographic crown visor, sharp focus on the glowing energy arrow, product photography, centered, isolated on solid green screen background for transparency, 8k',
-      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
+      prompt: 'A sleek futuristic Amazon warrior miniature figurine, white high-tech armor with subtle blue LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on gray background, centered, 8k',
+      negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     'piece-black': {
-      prompt: 'A fierce cyberpunk Amazon sniper miniature figurine, wearing black and magenta high-tech combat armor with neon glow accents, holding a futuristic energy bow drawn ready to fire, dynamic combat stance, dark skin, holographic skull visor, sharp focus on the glowing energy arrow, product photography, centered, isolated on solid green screen background for transparency, 8k',
-      negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
+      prompt: 'A sleek futuristic Amazon warrior miniature figurine, dark charcoal high-tech armor with subtle red LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on gray background, centered, 8k',
+      negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     burn: {
       prompt: 'top-down view of a small circular plasma burn crater on a dark metal floor, glowing neon cyan edges, molten metal splatter pattern radiating outward, electric sparks in the pit, dark scorched hole, futuristic sci-fi damage, game texture asset, isolated on solid green screen background for transparency overlay, 8k',

@@ -252,23 +252,20 @@ export class GameCanvas {
       const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = data.data;
 
-      // Remove near-white or near-magenta pixels (chroma key)
+      // Remove green/magenta background pixels (chroma key)
       for (let i = 0; i < pixels.length; i += 4) {
         const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-        // Detect white/gray background (R>200,G>200,B>200) or magenta (R>200,B>200,G<100)
-        const isWhite = r > 210 && g > 210 && b > 210;
-        const isMagenta = r > 200 && g < 80 && b > 200;
-        const isGreen = g > 200 && r < 80 && b < 80;
-        if (isWhite || isMagenta || isGreen) {
-          pixels[i + 3] = 0; // transparent
+        // Only key out green (g > 180, r/b low) or magenta (r+b high, g low)
+        const isGreen = g > 160 && r < g * 0.7 && b < g * 0.7;
+        const isMagenta = r > 180 && b > 180 && g < 100;
+        const isGrayBg = r > 200 && g > 200 && b > 200 && Math.abs(r - g) < 20 && Math.abs(g - b) < 20;
+        if (isGreen || isMagenta || isGrayBg) {
+          pixels[i + 3] = 0;
         } else {
-          // Soft edge feathering: reduce alpha for near-background colors
-          const dist = Math.min(
-            Math.abs(r - 255) + Math.abs(g - 255) + Math.abs(b - 255),
-            Math.abs(r - 255) + Math.abs(g - 0) + Math.abs(b - 255),
-          );
-          if (dist < 60) {
-            pixels[i + 3] = Math.floor(pixels[i + 3] * dist / 60);
+          // Soft edge: reduce alpha near key color boundary
+          const grayDist = Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
+          if (r > 180 && g > 180 && b > 180 && grayDist < 40) {
+            pixels[i + 3] = Math.floor(pixels[i + 3] * grayDist / 40);
           }
         }
       }
