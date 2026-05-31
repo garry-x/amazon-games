@@ -59,7 +59,12 @@ export function Layout() {
         <motion.div
           initial={{ y: -64 }} animate={{ y: 0 }}
           className="relative z-10 flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 border-b"
-          style={{ borderColor: accent + '22', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(16px)' }}
+          style={{
+            borderColor: accent + '22',
+            background: 'rgba(0,0,0,0.35)',
+            backdropFilter: 'blur(16px)',
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+          }}
         >
           <div className="flex items-center gap-2 sm:gap-3">
             <h1 className="text-base sm:text-xl font-bold tracking-wider"
