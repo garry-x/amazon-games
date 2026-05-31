@@ -8,27 +8,31 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh; /* dynamic viewport for mobile */
   overflow: hidden;
   background: #060610;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent text selection during gameplay */
+  -webkit-user-select: none;
+  user-select: none;
+  /* Prevent callout on long-press */
+  -webkit-touch-callout: none;
+  /* Smooth scrolling for history panel */
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Smooth scrollbar for move history */
-::-webkit-scrollbar {
-  width: 4px;
+/* Prevent pull-to-refresh and overscroll on mobile */
+body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.2);
-}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
 @theme {
   --color-gold-400: #f7c948;
@@ -36,4 +40,17 @@ html, body, #root {
   --color-gold-600: #b8860b;
   --color-ember: #ff6b35;
   --color-azure: #4ecdc4;
+}
+
+/* ── Responsive utilities ── */
+
+/* Hide on small screens */
+@media (max-width: 640px) {
+  .hide-xs { display: none !important; }
+}
+
+/* Stack columns on narrow screens */
+@media (max-width: 768px) {
+  .stack-md { flex-direction: column !important; }
+  .grid-cols-md-1 { grid-template-columns: 1fr !important; }
 }

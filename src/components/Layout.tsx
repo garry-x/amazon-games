@@ -58,25 +58,22 @@ export function Layout() {
       {isPlaying && (
         <motion.div
           initial={{ y: -64 }} animate={{ y: 0 }}
-          className="relative z-10 flex items-center justify-between px-5 py-2.5 border-b"
+          className="relative z-10 flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 border-b"
           style={{ borderColor: accent + '22', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(16px)' }}
         >
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-wider"
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h1 className="text-base sm:text-xl font-bold tracking-wider"
               style={{ color: accent, textShadow: `0 0 16px ${accent}44` }}>
               ⚔ 亚马逊棋
             </h1>
-            <span className="hidden sm:inline text-xs tracking-[0.2em] uppercase" style={{ color: accent + '77' }}>
-              Amazons
-            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <TopBtn onClick={() => setShowTutorial(true)}>📖 教程</TopBtn>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <TopBtn onClick={() => setShowTutorial(true)}>📖</TopBtn>
             <ThemePicker />
             <TopBtn onClick={() => setShowHistory(!showHistory)}>
-              {showHistory ? '隐藏记录' : '走棋记录'}
+              {showHistory ? '📋' : '📋'}
             </TopBtn>
-            <TopBtn onClick={() => setShowSetup(true)}>新游戏</TopBtn>
+            <TopBtn onClick={() => setShowSetup(true)}>⚙</TopBtn>
           </div>
         </motion.div>
       )}

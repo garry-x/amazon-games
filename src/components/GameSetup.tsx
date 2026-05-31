@@ -30,13 +30,13 @@ export function GameSetup({ onStart }: Props) {
   const start = () => { setTheme(selTheme); onStart(variant, size); };
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center px-6 py-8 select-none">
+    <div className="w-full h-full flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 select-none overflow-y-auto">
 
       {/* Title section */}
       <motion.div
         initial={{ y: -24, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         className="text-center mb-10">
-        <h1 className="text-6xl font-extrabold tracking-tight mb-3"
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-2 sm:mb-3"
           style={{ color: a, textShadow: `0 0 48px ${a}55, 0 4px 8px rgba(0,0,0,0.5)` }}>
           ⚔ 亚马逊棋
         </h1>
@@ -53,7 +53,7 @@ export function GameSetup({ onStart }: Props) {
         className="w-full max-w-3xl">
 
         {/* Mode + Size row */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
           {/* Mode */}
           <Panel label="游戏模式" accent={a}>
             <div className="space-y-2">
@@ -88,7 +88,7 @@ export function GameSetup({ onStart }: Props) {
 
         {/* Theme row */}
         <Panel label="视觉主题" accent={a}>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {ALL_THEMES.map(t => {
               const light = '#' + t.board.light.toString(16).padStart(6, '0');
               const dark = '#' + t.board.dark.toString(16).padStart(6, '0');

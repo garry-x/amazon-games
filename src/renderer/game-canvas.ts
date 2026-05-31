@@ -755,6 +755,7 @@ export class GameCanvas {
     if (!this.app?.canvas) return;
     const canvas = this.app.canvas as HTMLCanvasElement;
     canvas.style.cursor = 'pointer';
+    canvas.style.touchAction = 'none'; // prevent scroll/zoom on touch
 
     canvas.addEventListener('click', (e: MouseEvent) => {
       const pos = this.eventToPos(e);
