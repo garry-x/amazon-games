@@ -162,7 +162,7 @@ export function shootArrow(state: GameState, arrowTarget: Position): GameState |
 
   // 检查游戏是否结束
   const result = checkGameEnd(newState);
-  if (result) {
+  if (result !== undefined) {
     newState.phase = 'finished';
     newState.winner = result;
   }
