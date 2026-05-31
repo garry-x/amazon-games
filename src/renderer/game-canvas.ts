@@ -629,7 +629,7 @@ export class GameCanvas {
       // Border ring
       const border = new Graphics();
       border.circle(0, 0, size * 0.47);
-      border.stroke({ color: accent, width: Math.max(1.5, cs * 0.025), alpha: 0.5 });
+      border.stroke({ color: 0xd4a017, width: Math.max(1.5, cs * 0.022), alpha: 0.7 });
       c.addChild(border);
     } else {
       const fallback = new Graphics();
