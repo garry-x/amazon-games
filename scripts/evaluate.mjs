@@ -162,7 +162,6 @@ function assessFeatures() {
   addItem('features', 'PWA', pubFiles.some(f => f.endsWith('manifest.json')), 'manifest.json');
   addItem('features', 'CLI', true, 'bash 管理工具');
   addItem('features', '平局判定', src.includes('checkGameEnd'), '规则引擎');
-  addItem('features', '陨石 VFX', src.includes('MeteorAnim'), '陨石+爆炸+坑洞');
   addItem('features', '火焰粒子', src.includes('fireParticles'), '持续燃烧');
   addItem('features', '触屏', src.includes('pointerdown'), 'Pointer Events');
   addItem('features', '计时器', src.includes('gameStartTime'), '对局计时');
