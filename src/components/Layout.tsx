@@ -104,7 +104,7 @@ export function Layout() {
           <div className="flex-1 flex relative">
             <div className="flex-1 relative">
               <GameBoard />
-              <div className="absolute top-4 left-4 z-10"><GameHUD /></div>
+<div className="absolute top-4 left-4 z-10"><GameHUD /></div>
               <PlayerPanel />
             </div>
             <AnimatePresence>

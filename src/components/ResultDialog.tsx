@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/game-store';
 import { useUIStore } from '../store/ui-store';
@@ -9,25 +8,20 @@ export function ResultDialog() {
   const setShowSetup = useUIStore(s => s.setShowSetup);
   const theme = useUIStore(s => s.theme);
 
-  const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
-  const winnerColor = useMemo(() => {
-    if (!gameState?.winner) return accent;
-    return gameState.winner === 'white'
-      ? '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0')
-      : '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0');
-  }, [gameState, theme, accent]);
-
   if (!gameState || gameState.phase !== 'finished') return null;
 
-  const { winner, moveHistory } = gameState;
-  const moves = moveHistory.length;
+  const accent = '#' + theme.background.accent.toString(16).padStart(6, '0');
+  const winner = gameState.winner;
   const isDraw = winner === null;
+  const winnerColor = isDraw ? accent
+    : winner === 'white'
+      ? '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0')
+      : '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0');
 
   const title = isDraw ? '平局！' : `${winner === 'white' ? '白方' : '黑方'} 胜利！`;
   const icon = isDraw ? '🤝' : '👑';
-  const reason = isDraw
-    ? '双方均无合法移动，握手言和'
-    : '对方已无合法移动，无力再战';
+  const reason = isDraw ? '双方均无合法移动，握手言和' : '对方已无合法移动，无力再战';
+  const moves = gameState.moveHistory.length;
 
   return (
     <motion.div

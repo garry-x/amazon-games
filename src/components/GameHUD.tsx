@@ -15,18 +15,18 @@ export function GameHUD() {
   const [elapsed, setElapsed] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
 
+  // Timer — must be before early return (React hooks rules)
+  useEffect(() => {
+    if (!gameStartTime || !gameState || gameState.phase !== 'playing') return;
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - gameStartTime) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [gameStartTime, gameState?.phase]);
+
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
   const whiteClr = useMemo(() => '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0'), [theme]);
   const blackClr = useMemo(() => '#' + theme.pieces.blackGlow.toString(16).padStart(6, '0'), [theme]);
 
   if (!gameState || gameState.phase !== 'playing') return null;
-
-  // Timer
-  useEffect(() => {
-    if (!gameStartTime) return;
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - gameStartTime) / 1000)), 1000);
-    return () => clearInterval(id);
-  }, [gameStartTime]);
 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
