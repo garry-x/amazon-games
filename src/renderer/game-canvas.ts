@@ -27,13 +27,16 @@ function poolPut(p: Particle) {
 }
 
 // ── Animation state ──
+interface TrailPoint { x: number; y: number; }
+
 interface MeteorAnim {
-  tx: number; ty: number;     // target cell center
+  tx: number; ty: number;
   elapsed: number;
-  fallDuration: number;        // meteor descent
+  fallDuration: number;
   color: number;
   particles: Particle[];
   phase: 'fall' | 'impact' | 'done';
+  trail: TrailPoint[];  // position history for comet tail
 }
 
 export class GameCanvas {
@@ -712,7 +715,7 @@ export class GameCanvas {
     }
 
     this.meteorAnims.push({
-      tx, ty, elapsed: 0, fallDuration: 1.2, color, particles, phase: 'fall',
+      tx, ty, elapsed: 0, fallDuration: 1.2, color, particles, phase: 'fall', trail: [],
     });
   }
 
@@ -766,26 +769,26 @@ export class GameCanvas {
         const my = topY + (a.ty - topY) * et;
         const mx = a.tx + Math.sin(t * Math.PI * 2) * cs * 0.3; // slight wobble
 
-        // Comet tail — tapering trail of particles
-        const trailSegments = 18;
-        const headR = cs * 0.35;
-        for (let i = 0; i < trailSegments; i++) {
-          const frac = i / trailSegments;
-          const d = frac * 0.5; // trail covers top 50% of path
-          const pt = Math.max(0.001, et - d);
-          const px = a.tx + Math.sin(pt * Math.PI * 2) * cs * 0.3;
-          const py = topY + (a.ty - topY) * pt;
-          // Radius tapers: full size at head, tiny at tail tip
-          const r = headR * (1 - frac) * (1 - frac) * 0.9 + 1;
-          // Color gradient: bright white-yellow at head → orange → dark red at tail
-          const cFrac = frac;
-          const rr = Math.floor(255 * (1 - cFrac * 0.5));
-          const gg = Math.floor(200 * (1 - cFrac));
-          const bb = Math.floor(50 * (1 - cFrac));
-          const alpha = 0.7 * (1 - frac);
-          const color = (rr << 16) | (Math.max(0, gg) << 8) | Math.max(0, bb);
-          g.circle(px, py, r);
-          g.fill({ color, alpha });
+        // Record position for trail history (max 12 points)
+        a.trail.push({ x: mx, y: my });
+        if (a.trail.length > 12) a.trail.shift();
+
+        // Draw comet tail — tapered, fading from bright to dark
+        const maxWidth = cs * 0.35;
+        const widthCurve = [1.0, 0.9, 0.75, 0.55, 0.35, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0];
+        const colors = [0xfff8e0, 0xffe088, 0xffb040, 0xff8018, 0xff5000, 0xcc3000, 0x881800, 0x550800];
+
+        for (let i = 0; i < a.trail.length; i++) {
+          const pt = a.trail[i];
+          const idx = a.trail.length - 1 - i; // 0 = oldest
+          const frac = idx / 11; // normalize to 0..1
+          if (frac >= 1) continue;
+          const r = maxWidth * (widthCurve[idx] || 0.01);
+          if (r < 0.5) continue;
+          const ci = Math.min(colors.length - 1, Math.floor(frac * colors.length));
+          const alpha = (1 - frac) * 0.6;
+          g.circle(pt.x, pt.y, r);
+          g.fill({ color: colors[ci], alpha });
         }
 
         // Meteor head — use AI-generated fireball sprite or fallback
