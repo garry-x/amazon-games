@@ -472,13 +472,15 @@ export class GameCanvas {
       const cy = this.oy + b.row * cs + cs / 2;
 
       if (this.burnTex) {
-        // Smooth fade-in: crater appears gradually after explosion
+        // Delayed fade-in: crater starts appearing 0.8s after impact,
+        // reaches full opacity at 1.4s (when explosion ends)
         const fadeKey = `${b.col},${b.row}`;
         const fadeElapsed = this.craterFadeIns.get(fadeKey) ?? 999;
-        const fadeDuration = 0.7; // seconds to full opacity
-        const fadeT = Math.min(fadeElapsed / fadeDuration, 1);
-        const fadeAlpha = 1 - (1 - fadeT) * (1 - fadeT); // ease-out quad
-        const scale = 0.85 + fadeT * 0.15; // slight scale pop
+        const fadeDelay = 0.8;  // wait for explosion peak to pass
+        const fadeDuration = 0.6; // then fade in over 0.6s
+        const fadeT = Math.max(0, Math.min((fadeElapsed - fadeDelay) / fadeDuration, 1));
+        const fadeAlpha = fadeT < 0.01 ? 0 : 1 - (1 - fadeT) * (1 - fadeT);
+        const scale = 0.85 + fadeT * 0.15;
 
         const sprite = new Sprite(this.burnTex);
         sprite.anchor.set(0.5);
