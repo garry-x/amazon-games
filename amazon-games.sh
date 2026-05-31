@@ -327,6 +327,7 @@ cmd_help() {
   echo "  build               构建生产版本到 dist/"
   echo "  preview             预览生产版本"
   echo "  logs [行数]          查看最近日志"
+  echo "  evaluate [--quick]    质量评估 (交互/功能/代码/性能)"
   echo "  generate [主题] [类型]  AI 纹理生成 (需 ComfyUI)"
   echo "    主题: all / egyptian / medieval / scifi / nature"
   echo "    类型: bg / board / all"
