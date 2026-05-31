@@ -766,17 +766,27 @@ export class GameCanvas {
         const my = topY + (a.ty - topY) * et;
         const mx = a.tx + Math.sin(t * Math.PI * 2) * cs * 0.3; // slight wobble
 
-        // Flame trail (thick gradient line)
-        const trailLen = 0.25;
-        const ts = Math.max(0, et - trailLen);
-        const sy = topY + (a.ty - topY) * ts;
-        const sx = a.tx + Math.sin(ts * Math.PI * 2) * cs * 0.3;
-        g.moveTo(sx, sy);
-        g.lineTo(mx, my);
-        g.stroke({ color: 0xff6600, width: cs * 0.6, alpha: 0.55 });
-        g.moveTo(sx, sy);
-        g.lineTo(mx, my);
-        g.stroke({ color: 0xffcc00, width: cs * 0.25, alpha: 0.75 });
+        // Comet tail — tapering trail of particles
+        const trailSegments = 18;
+        const headR = cs * 0.35;
+        for (let i = 0; i < trailSegments; i++) {
+          const frac = i / trailSegments;
+          const d = frac * 0.5; // trail covers top 50% of path
+          const pt = Math.max(0.001, et - d);
+          const px = a.tx + Math.sin(pt * Math.PI * 2) * cs * 0.3;
+          const py = topY + (a.ty - topY) * pt;
+          // Radius tapers: full size at head, tiny at tail tip
+          const r = headR * (1 - frac) * (1 - frac) * 0.9 + 1;
+          // Color gradient: bright white-yellow at head → orange → dark red at tail
+          const cFrac = frac;
+          const rr = Math.floor(255 * (1 - cFrac * 0.5));
+          const gg = Math.floor(200 * (1 - cFrac));
+          const bb = Math.floor(50 * (1 - cFrac));
+          const alpha = 0.7 * (1 - frac);
+          const color = (rr << 16) | (Math.max(0, gg) << 8) | Math.max(0, bb);
+          g.circle(px, py, r);
+          g.fill({ color, alpha });
+        }
 
         // Meteor head — use AI-generated fireball sprite or fallback
         const headSize = cs * 0.9;
