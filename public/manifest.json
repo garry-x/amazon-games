@@ -1,0 +1,22 @@
+{
+  "name": "亚马逊棋 — Game of the Amazons",
+  "short_name": "亚马逊棋",
+  "description": "华丽的浏览器双人亚马逊棋对弈游戏",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0a0f",
+  "theme_color": "#d4a017",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
