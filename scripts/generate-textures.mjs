@@ -141,8 +141,8 @@ const PROMPTS = {
 };
 
 const SIZES = {
-  bg: { width: 1920, height: 1080 },
-  board: { width: 2048, height: 2048 },
+  bg: { width: 3840, height: 2160 },
+  board: { width: 4096, height: 4096 },
   'piece-white': { width: 1024, height: 1024 },
   'piece-black': { width: 1024, height: 1024 },
   burn: { width: 1024, height: 1024 },
