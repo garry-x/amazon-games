@@ -718,7 +718,7 @@ export class GameCanvas {
     }
 
     this.meteorAnims.push({
-      tx, ty, elapsed: 0, fallDuration: 1.2, color, particles, phase: 'fall', trail: [],
+      tx, ty, elapsed: 0, fallDuration: 0.7, color, particles, phase: 'fall', trail: [],
     });
   }
 
@@ -777,7 +777,7 @@ export class GameCanvas {
         if (a.trail.length > 12) a.trail.shift();
 
         // Draw comet tail — tapered, fading from bright to dark
-        const maxWidth = cs * 0.35;
+        const maxWidth = cs * 0.22;
         const widthCurve = [1.0, 0.9, 0.75, 0.55, 0.35, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0];
         const colors = [0xfff8e0, 0xffe088, 0xffb040, 0xff8018, 0xff5000, 0xcc3000, 0x881800, 0x550800];
 
@@ -794,26 +794,24 @@ export class GameCanvas {
           g.fill({ color: colors[ci], alpha });
         }
 
-        // Meteor head — use AI-generated fireball sprite or fallback
-        const headSize = cs * 0.9;
+        // Meteor head — round fireball (AI texture or fallback circles)
+        const headR = cs * 0.22;
         if (this.vfxFireball) {
-          // Draw sprite via matrix transform
           const tex = this.vfxFireball;
           const m = new Matrix();
           m.translate(-tex.width / 2, -tex.height / 2);
-          m.scale(headSize / tex.width, headSize / tex.height);
+          m.scale(headR * 2.5 / tex.width, headR * 2.5 / tex.height);
           m.translate(mx, my);
-          g.beginFill(0xffffff); // will be tinted by texture
-          // Use rect to draw the texture (PixiJS v8 fill texture)
-          g.rect(mx - headSize / 2, my - headSize / 2, headSize, headSize);
+          g.circle(mx, my, headR * 1.3);
           g.fill({ texture: tex, matrix: m, alpha: 0.9 });
+          // Bright core glow
+          g.circle(mx, my, headR * 0.5);
+          g.fill({ color: 0xffffff, alpha: 0.5 });
         } else {
-          // Fallback: layered circles
-          const hr = cs * 0.28;
-          g.circle(mx, my, hr * 2); g.fill({ color: 0xff6600, alpha: 0.3 });
-          g.circle(mx, my, hr * 1.2); g.fill({ color: 0xff9900, alpha: 0.5 });
-          g.circle(mx, my, hr * 0.6); g.fill({ color: 0xffdd00, alpha: 0.8 });
-          g.circle(mx, my, hr * 0.25); g.fill({ color: 0xffffff, alpha: 0.9 });
+          g.circle(mx, my, headR * 1.5); g.fill({ color: 0xff6600, alpha: 0.35 });
+          g.circle(mx, my, headR * 1.1); g.fill({ color: 0xff9900, alpha: 0.55 });
+          g.circle(mx, my, headR * 0.6); g.fill({ color: 0xffdd00, alpha: 0.8 });
+          g.circle(mx, my, headR * 0.2); g.fill({ color: 0xffffff, alpha: 0.9 });
         }
 
         // Screen flash when close
