@@ -44,7 +44,7 @@ const PROMPTS = {
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of ancient sandstone floor struck by a flaming arrow, circular scorch mark with burning golden embers, cracked sandstone radiating from impact, wisps of smoke rising, warm desert sunlight, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of ancient sandstone floor struck by a flaming arrow stuck in the ground, the arrow shaft visible sticking out of a circular scorch mark with burning golden embers, cracked sandstone radiating from impact, wisps of smoke rising, warm desert sunlight, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
@@ -74,7 +74,7 @@ const PROMPTS = {
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of castle stone floor hit by a fire arrow, circular burn mark with glowing orange embers, cracked cobblestone around the impact, smoke and ash, warm firelight glow, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of castle stone floor hit by a fire arrow stuck in the ground, the arrow shaft visible sticking out of a circular burn mark with glowing orange embers, cracked cobblestone around the impact, smoke and ash, warm firelight glow, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
@@ -104,7 +104,7 @@ const PROMPTS = {
       negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     burn: {
-      prompt: 'top-down view of dark metal floor struck by a plasma arrow, circular scorch with glowing neon orange edges, molten metal splatter, electric sparks at impact point, futuristic burn damage, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of dark metal floor struck by a plasma arrow stuck in the ground, the glowing arrow visible sticking out of a circular scorch with glowing neon orange edges, molten metal splatter, electric sparks at impact point, futuristic burn damage, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, nature, organic',
     },
   },
@@ -134,7 +134,7 @@ const PROMPTS = {
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of forest floor hit by a flaming arrow, circular scorch with burning embers and ash, cracked earth and charred roots, wisps of smoke, dappled forest light, game texture asset, isolated on solid green background, 8k',
+      prompt: 'top-down view of forest floor hit by a flaming arrow stuck in the ground, the arrow shaft visible sticking out of a circular scorch with burning embers and ash, cracked earth and charred roots, wisps of smoke, dappled forest light, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, metal',
     },
   },
