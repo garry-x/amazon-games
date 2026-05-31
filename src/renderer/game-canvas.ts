@@ -1,8 +1,8 @@
 import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix, Assets } from 'pixi.js';
 
-/** Get texture URL — WebP with PNG fallback */
+/** Get texture URL */
 function texURL(path: string): string {
-  return path.replace('.png', '.webp');
+  return path;
 }
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
@@ -70,9 +70,6 @@ export class GameCanvas {
   private burnTex: Texture | null = null;
   private tileLight: Texture | null = null;
   private tileDark: Texture | null = null;
-  private vfxFireball: Texture | null = null;
-  private vfxExplosion: Texture | null = null;
-  private vfxSmoke: Texture | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -133,12 +130,7 @@ export class GameCanvas {
 
     this.initialized = true;
 
-    // Load VFX textures (shared across themes)
-    this.loadImage(texURL('/vfx/fireball.png'), (img) => { this.vfxFireball = Texture.from(img); });
-    this.loadImage(texURL('/vfx/explosion.png'), (img) => { this.vfxExplosion = Texture.from(img); });
-    this.loadImage(texURL('/vfx/smoke.png'), (img) => { this.vfxSmoke = Texture.from(img); });
 
-    // Load theme textures
     this.loadThemeTextures();
 
     if (this.pendingState) {
