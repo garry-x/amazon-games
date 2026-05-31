@@ -1062,9 +1062,12 @@ export class GameCanvas {
     const dt = this.app.ticker.deltaMS / 1000;
     this.renderMeteorEffects(dt);
     this.renderFireParticles(dt);
-    // Advance crater fade-ins
-    for (const [key, elapsed] of this.craterFadeIns) {
-      this.craterFadeIns.set(key, elapsed + dt);
+    // Advance crater fade-ins (only while explosion is playing)
+    const anyExploding = this.meteorAnims.some(a => a.phase === 'impact');
+    if (anyExploding) {
+      for (const [key, elapsed] of this.craterFadeIns) {
+        this.craterFadeIns.set(key, elapsed + dt);
+      }
     }
   }
 }
