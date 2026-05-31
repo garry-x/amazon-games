@@ -4,8 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 PID_FILE="$ROOT/.dev-server.pid"
 CONFIG_FILE="$ROOT/.game-config"
+LOG_DIR="$ROOT/logs"
 DEFAULT_PORT=5173
 DEFAULT_HOST="0.0.0.0"
+
+mkdir -p "$LOG_DIR"
 
 # ============================================================
 # 加载配置
@@ -57,7 +60,8 @@ cmd_start() {
   fi
 
   # Use vite directly so $! is the real server process (npx wrapper dies immediately)
-  ./node_modules/.bin/vite --host "$HOST" --port "$PORT" &
+  local log_file="$LOG_DIR/server-$(date +%Y%m%d-%H%M%S).log"
+  ./node_modules/.bin/vite --host "$HOST" --port "$PORT" > "$log_file" 2>&1 &
   local pid=$!
   echo "$pid" > "$PID_FILE"
 
@@ -66,6 +70,7 @@ cmd_start() {
     echo "✓ 服务已启动 (PID: $pid)"
     echo "  本地:  http://localhost:${PORT}"
     echo "  网络:  http://${HOST}:${PORT}"
+    echo "  日志:  $log_file"
     echo ""
     echo "  停止:  $0 stop"
   else
@@ -276,10 +281,34 @@ cmd_preview() {
   fi
 
   echo "→ 启动预览服务..."
-  ./node_modules/.bin/vite preview --host "$HOST" --port "${PORT}" &
+  local log_file="$LOG_DIR/preview-$(date +%Y%m%d-%H%M%S).log"
+  ./node_modules/.bin/vite preview --host "$HOST" --port "${PORT}" > "$log_file" 2>&1 &
   local pid=$!
   echo "$pid" > "$PID_FILE"
   echo "✓ 预览服务已启动 → http://localhost:${PORT}"
+  echo "  日志: $log_file"
+}
+
+# ============================================================
+# 查看日志
+# ============================================================
+cmd_logs() {
+  local lines="${1:-20}"
+  echo "══════════════════════════════════════"
+  echo "  最近的日志文件"
+  echo "══════════════════════════════════════"
+  if [[ -d "$LOG_DIR" ]] && [[ -n "$(ls -A "$LOG_DIR" 2>/dev/null)" ]]; then
+    ls -lt "$LOG_DIR"/*.log 2>/dev/null | head -10
+    echo ""
+    local latest
+    latest=$(ls -t "$LOG_DIR"/*.log 2>/dev/null | head -1)
+    if [[ -n "$latest" ]]; then
+      echo "── ${latest##*/} (最近 ${lines} 行) ──"
+      tail -"$lines" "$latest"
+    fi
+  else
+    echo "  (暂无日志)"
+  fi
 }
 
 # ============================================================
@@ -297,6 +326,7 @@ cmd_help() {
   echo "  status              查看服务状态"
   echo "  build               构建生产版本到 dist/"
   echo "  preview             预览生产版本"
+  echo "  logs [行数]          查看最近日志"
   echo "  generate [主题] [类型]  AI 纹理生成 (需 ComfyUI)"
   echo "    主题: all / egyptian / medieval / scifi / nature"
   echo "    类型: bg / board / all"
@@ -325,6 +355,7 @@ case "${1:-help}" in
   status)   cmd_status ;;
   build)    cmd_build ;;
   preview)  cmd_preview ;;
+  logs)     shift; cmd_logs "$@" ;;
   generate) shift; cmd_generate "$@" ;;
   config)   shift; cmd_config "$@" ;;
   help|--help|-h) cmd_help ;;

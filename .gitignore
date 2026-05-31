@@ -26,3 +26,4 @@ dist-ssr
 # Game CLI runtime files
 .game-config
 .dev-server.pid
+logs/*.log
