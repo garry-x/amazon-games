@@ -36,15 +36,15 @@ const PROMPTS = {
       negative: 'shadows, perspective, grout lines, border, people, text, light, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing white and gold Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, ivory skin tone, gold crown with lapis lazuli gems, flowing cape, dramatic studio lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on solid magenta background, studio lighting, centered, 8k',
+      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing white and gold Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, ivory skin tone, gold crown with lapis lazuli gems, flowing cape, dramatic studio lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on solid green background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing dark bronze and black Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, dark skin tone, obsidian crown with ruby gems, flowing dark cape, dramatic rim lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on solid magenta background, studio lighting, centered, 8k',
+      prompt: 'A fierce Amazon warrior queen miniature figurine, wearing dark bronze and black Greek-style battle armor, holding a drawn recurve bow ready to shoot, dynamic archer stance, dark skin tone, obsidian crown with ruby gems, flowing dark cape, dramatic rim lighting from top-left, sharp focus on the bow and arrow, product photography, centered, isolated on solid green background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of a small circular crater burned into ancient sandstone floor, charred black edges, glowing orange embers at the bottom, cracked stone pattern radiating outward, smoke wisps, dark pit hole, dramatic overhead lighting, game texture asset, isolated on solid magenta background, studio lighting, centered overlay, 8k',
+      prompt: 'top-down view of a small circular crater burned into ancient sandstone floor, charred black edges, glowing orange embers at the bottom, cracked stone pattern radiating outward, smoke wisps, dark pit hole, dramatic overhead lighting, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
@@ -66,15 +66,15 @@ const PROMPTS = {
       negative: 'shadows, perspective, grout lines, border, people, text, light, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing polished silver chainmail armor with a white surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, fair skin, iron crown with emerald gem, red cape, dramatic firelight from top-left, sharp focus on bow, product photography, centered, isolated on solid magenta background, studio lighting, centered, 8k',
+      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing polished silver chainmail armor with a white surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, fair skin, iron crown with emerald gem, red cape, dramatic firelight from top-left, sharp focus on bow, product photography, centered, isolated on solid green background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing blackened steel plate armor with a dark surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, dark skin, iron crown with blood ruby, dark purple cape, dramatic rim lighting from top-left, sharp focus on bow, product photography, centered, isolated on solid magenta background, studio lighting, centered, 8k',
+      prompt: 'A fierce medieval Amazon archer miniature figurine, wearing blackened steel plate armor with a dark surcoat, holding a drawn English longbow ready to shoot, dynamic archer stance, dark skin, iron crown with blood ruby, dark purple cape, dramatic rim lighting from top-left, sharp focus on bow, product photography, centered, isolated on solid green background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of a small circular crater smashed into stone castle floor, charred black edges, glowing orange embers in the pit, cracked cobblestone radiating outward, smoke rising, dark hole, dramatic firelight, game texture asset, isolated on solid magenta background, studio lighting, centered overlay, 8k',
+      prompt: 'top-down view of a small circular crater smashed into stone castle floor, charred black edges, glowing orange embers in the pit, cracked cobblestone radiating outward, smoke rising, dark hole, dramatic firelight, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, grass',
     },
   },
@@ -96,15 +96,15 @@ const PROMPTS = {
       negative: 'shadows, perspective, color, neon, pattern, border, bright, organic, 3d',
     },
     'piece-white': {
-      prompt: 'A sleek futuristic Amazon warrior miniature figurine, white high-tech armor with subtle blue LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on gray background, centered, 8k',
+      prompt: 'A sleek futuristic Amazon warrior miniature figurine, white high-tech armor with subtle blue LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on solid magenta background, 8k',
       negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     'piece-black': {
-      prompt: 'A sleek futuristic Amazon warrior miniature figurine, dark charcoal high-tech armor with subtle red LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on gray background, centered, 8k',
+      prompt: 'A sleek futuristic Amazon warrior miniature figurine, dark charcoal high-tech armor with subtle red LED accents, holding an energy bow, confident battle stance, clean sci-fi aesthetic, dramatic rim lighting, sharp focus, product photography on solid magenta background, 8k',
       negative: 'multiple figures, background scene, blurry, low quality, text, watermark, ugly, deformed, neon overload, cluttered',
     },
     burn: {
-      prompt: 'top-down view of a small circular plasma burn crater on a dark metal floor, glowing neon cyan edges, molten metal splatter pattern radiating outward, electric sparks in the pit, dark scorched hole, futuristic sci-fi damage, game texture asset, isolated on solid magenta background, studio lighting, centered overlay, 8k',
+      prompt: 'top-down view of a small circular plasma burn crater on a dark metal floor, glowing neon cyan edges, molten metal splatter pattern radiating outward, electric sparks in the pit, dark scorched hole, futuristic sci-fi damage, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, nature, organic',
     },
   },
@@ -126,15 +126,15 @@ const PROMPTS = {
       negative: 'shadows, perspective, grout, border, people, text, bright, modern, 3d',
     },
     'piece-white': {
-      prompt: 'A fierce elven Amazon ranger miniature figurine, wearing white and green leaf-armor with delicate vine patterns, holding a drawn elegant elven longbow ready to shoot, dynamic archer stance, fair skin with elf ears, crown of woven white flowers, emerald cape, dramatic golden sunlight from top-left, sharp focus on bow, product photography, centered, isolated on solid magenta background, studio lighting, centered, 8k',
+      prompt: 'A fierce elven Amazon ranger miniature figurine, wearing white and green leaf-armor with delicate vine patterns, holding a drawn elegant elven longbow ready to shoot, dynamic archer stance, fair skin with elf ears, crown of woven white flowers, emerald cape, dramatic golden sunlight from top-left, sharp focus on bow, product photography, centered, isolated on solid green background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     'piece-black': {
-      prompt: 'A fierce dark elven Amazon ranger miniature figurine, wearing black and deep purple shadow-leaf armor, holding a drawn elegant darkwood longbow ready to shoot, dynamic archer stance, dark skin with elf ears, crown of black thorns, midnight blue cape, dramatic moonlight from top-left, sharp focus on bow, product photography, centered, isolated on solid magenta background, studio lighting, centered, 8k',
+      prompt: 'A fierce dark elven Amazon ranger miniature figurine, wearing black and deep purple shadow-leaf armor, holding a drawn elegant darkwood longbow ready to shoot, dynamic archer stance, dark skin with elf ears, crown of black thorns, midnight blue cape, dramatic moonlight from top-left, sharp focus on bow, product photography, centered, isolated on solid green background, 8k',
       negative: 'multiple figures, full body, background scene, blurry, low quality, modern gun, text, watermark, ugly, deformed',
     },
     burn: {
-      prompt: 'top-down view of a small circular scorched crater in mossy forest floor, charred black edges, glowing orange embers, cracked earth and burnt roots radiating outward, smoke and ash, dark pit hole, dappled forest light, game texture asset, isolated on solid magenta background, studio lighting, centered overlay, 8k',
+      prompt: 'top-down view of a small circular scorched crater in mossy forest floor, charred black edges, glowing orange embers, cracked earth and burnt roots radiating outward, smoke and ash, dark pit hole, dappled forest light, game texture asset, isolated on solid green background, 8k',
       negative: 'perspective, 3d, characters, text, watermark, modern, metal',
     },
   },
