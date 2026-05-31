@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0f;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+@theme {
+  --color-gold-400: #f7c948;
+  --color-gold-500: #d4a017;
+  --color-gold-600: #b8860b;
+  --color-ember: #ff6b35;
+  --color-azure: #4ecdc4;
+}
