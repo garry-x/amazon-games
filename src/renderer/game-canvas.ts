@@ -60,6 +60,7 @@ export class GameCanvas {
   private burnGfx: Container | null = null;
   private pieceSprites: Map<string, Container> = new Map();
   private shotAnims: ShotAnim[] = [];
+  private shotGfx: Graphics | null = null;
   private lastRenderedMoveCount = 0;
   private initialized = false;
   private destroyed = false;
@@ -607,25 +608,24 @@ export class GameCanvas {
     // Pre-spawn particles for impact burst
     const particles: Particle[] = [];
     const shootAngle = Math.atan2(ty - fy, tx - fx);
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 70; i++) {
       const p = poolGet();
       p.x = tx; p.y = ty;
-      // Fan out from the arrow's direction
-      const a = shootAngle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.7;
-      const speed = 50 + Math.random() * 200;
+      const a = shootAngle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.9;
+      const speed = 80 + Math.random() * 280;
       p.vx = Math.cos(a) * speed;
       p.vy = Math.sin(a) * speed;
-      p.life = 0; p.maxLife = 0.5 + Math.random() * 0.6;
-      p.color = i < 12 ? color : (i < 24 ? pColor : burnColor);
-      p.size = 2 + Math.random() * 5;
+      p.life = 0; p.maxLife = 0.6 + Math.random() * 0.8;
+      p.color = i < 20 ? color : (i < 38 ? pColor : burnColor);
+      p.size = 3 + Math.random() * 8;
       particles.push(p);
     }
 
     this.shotAnims.push({
       fx, fy, tx, ty,
       elapsed: 0,
-      bowDuration: 0.18,                    // draw flash (visible)
-      flyDuration: Math.max(300, Math.min(550, dist * 1.5)),
+      bowDuration: 0.22,                     // draw flash
+      flyDuration: Math.max(350, Math.min(650, dist * 1.8)),
       color,
       particles,
       phase: 'bow',
@@ -671,13 +671,16 @@ export class GameCanvas {
       // ── BOW DRAW ──
       if (a.phase === 'bow') {
         const t = Math.min(a.elapsed / a.bowDuration, 1);
-        const ringR = cs * 0.4 * Ease.outCubic(t);
+        const ringR = cs * 0.6 * Ease.outCubic(t);
+        // Bright white shockwave ring
         g.circle(a.fx, a.fy, ringR);
-        g.stroke({ color: 0xffffff, width: 3, alpha: 0.8 * (1 - t) });
-        g.circle(a.fx, a.fy, ringR * 1.4);
-        g.stroke({ color: a.color, width: 2, alpha: 0.5 * (1 - t) });
-        g.circle(a.fx, a.fy, cs * 0.15 * (1 - t));
-        g.fill({ color: 0xffffff, alpha: 0.7 * (1 - t) });
+        g.stroke({ color: 0xffffff, width: 4, alpha: 0.9 * (1 - t) });
+        // Secondary colored ring
+        g.circle(a.fx, a.fy, ringR * 1.5);
+        g.stroke({ color: a.color, width: 3, alpha: 0.6 * (1 - t) });
+        // Center flash
+        g.circle(a.fx, a.fy, cs * 0.2);
+        g.fill({ color: 0xffffff, alpha: 0.9 });
         if (t >= 1) { a.phase = 'fly'; a.elapsed = 0; }
       }
 
@@ -688,47 +691,44 @@ export class GameCanvas {
         const hx = a.fx + (a.tx - a.fx) * et;
         const hy = a.fy + (a.ty - a.fy) * et;
         const angle = Math.atan2(a.ty - a.fy, a.tx - a.fx);
-        const hl = Math.max(8, cs * 0.12);
+        const hl = Math.max(10, cs * 0.14);
 
-        // Full trail from start to current (persistent on the shared gfx)
+        // Bright glow behind arrow
         g.moveTo(a.fx, a.fy);
         g.lineTo(hx, hy);
-        g.stroke({ color: a.color, width: 3, alpha: 0.7 });
+        g.stroke({ color: 0xffffff, width: 10, alpha: 0.35 });
 
+        // Core colored trail
         g.moveTo(a.fx, a.fy);
         g.lineTo(hx, hy);
-        g.stroke({ color: 0xffffff, width: 7, alpha: 0.2 });
+        g.stroke({ color: a.color, width: 4, alpha: 0.85 });
 
-        // Arrow head
-        const ha = Math.PI / 5;
+        // Arrow head (large filled triangle)
+        const ha = Math.PI / 4.5;
         g.moveTo(hx, hy);
-        g.lineTo(hx - hl * Math.cos(angle - ha), hy - hl * Math.sin(angle - ha));
-        g.lineTo(hx - hl * 0.2 * Math.cos(angle), hy - hl * 0.2 * Math.sin(angle));
-        g.lineTo(hx - hl * Math.cos(angle + ha), hy - hl * Math.sin(angle + ha));
+        g.lineTo(hx - hl * 1.2 * Math.cos(angle - ha), hy - hl * 1.2 * Math.sin(angle - ha));
+        g.lineTo(hx - hl * 0.25 * Math.cos(angle), hy - hl * 0.25 * Math.sin(angle));
+        g.lineTo(hx - hl * 1.2 * Math.cos(angle + ha), hy - hl * 1.2 * Math.sin(angle + ha));
         g.closePath();
-        g.fill({ color: a.color, alpha: 0.9 });
-
-        // Feathers
-        const tx = hx - hl * 1.1 * Math.cos(angle);
-        const ty = hy - hl * 1.1 * Math.sin(angle);
-        const fa = angle + Math.PI / 2;
-        g.moveTo(tx, ty);
-        g.lineTo(tx + hl * 0.6 * Math.cos(fa - 0.4), ty + hl * 0.6 * Math.sin(fa - 0.4));
-        g.moveTo(tx, ty);
-        g.lineTo(tx + hl * 0.6 * Math.cos(fa + 0.4), ty + hl * 0.6 * Math.sin(fa + 0.4));
-        g.stroke({ color: 0xffffff, width: 1.5, alpha: 0.7 });
+        g.fill({ color: a.color, alpha: 1.0 });
+        g.stroke({ color: 0xffffff, width: 2, alpha: 0.6 });
 
         if (t >= 1) { a.phase = 'impact'; a.elapsed = 0; }
       }
 
       // ── IMPACT ──
       if (a.phase === 'impact') {
-        const t = Math.min(a.elapsed / 0.7, 1);
-        const ringR = cs * 0.5 * t;
-        g.circle(a.tx, a.ty, ringR);
-        g.stroke({ color: a.color, width: 3, alpha: 0.7 * (1 - t) });
-        g.circle(a.tx, a.ty, ringR * 0.6);
-        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.2 * (1 - t) });
+        const t = Math.min(a.elapsed / 0.8, 1);
+        // Double ring burst
+        const ringR1 = cs * 0.6 * t;
+        g.circle(a.tx, a.ty, ringR1);
+        g.stroke({ color: 0xffffff, width: 4, alpha: 0.8 * (1 - t) });
+        const ringR2 = cs * 0.45 * t;
+        g.circle(a.tx, a.ty, ringR2);
+        g.stroke({ color: a.color, width: 2.5, alpha: 0.6 * (1 - t) });
+        // Filled glow
+        g.circle(a.tx, a.ty, ringR1 * 0.5);
+        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.25 * (1 - t) });
 
         // Activate & update particles
         if (a.elapsed < 0.1) {
@@ -745,8 +745,11 @@ export class GameCanvas {
           p.life -= pdt;
           if (p.life <= 0) continue;
           const alpha = p.life / Math.abs(p.maxLife);
-          g.circle(p.x, p.y, Math.max(2, p.size * alpha));
-          g.fill({ color: p.color, alpha: alpha * 0.7 });
+          g.circle(p.x, p.y, Math.max(3, p.size * (0.5 + alpha * 0.5)));
+          g.fill({ color: p.color, alpha: alpha * 0.85 });
+          // Particle glow
+          g.circle(p.x, p.y, Math.max(5, p.size * (0.5 + alpha * 0.5) * 1.8));
+          g.stroke({ color: 0xffffff, width: 1, alpha: alpha * 0.15 });
         }
       }
     }
