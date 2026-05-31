@@ -3,14 +3,38 @@ import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
 
-interface ShotEffect {
-  fx: number; fy: number;   // from (amazon position)
-  tx: number; ty: number;   // to (target)
-  startTime: number;
+// ── Easing functions ──
+const Ease = {
+  inQuad: (t: number) => t * t,
+  outCubic: (t: number) => 1 - Math.pow(1 - t, 3),
+  outBack: (t: number) => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+};
+
+// ── Particle pool (avoid GC) ──
+interface Particle {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; maxLife: number;
+  color: number; size: number;
+}
+const POOL_SIZE = 200;
+let particlePool: Particle[] = [];
+function poolGet(): Particle {
+  return particlePool.pop() || { x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, color: 0, size: 0 };
+}
+function poolPut(p: Particle) {
+  if (particlePool.length < POOL_SIZE) particlePool.push(p);
+}
+
+// ── Animation state ──
+interface ShotAnim {
+  fx: number; fy: number;
+  tx: number; ty: number;
+  elapsed: number;
   duration: number;
   color: number;
-  particles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: number; size: number }[];
-  done: boolean;
+  particles: Particle[];
+  phase: 'fly' | 'impact' | 'done';
 }
 
 export class GameCanvas {
@@ -34,7 +58,7 @@ export class GameCanvas {
   private boardTexSprite: Sprite | null = null;
   private burnGfx: Graphics | null = null;
   private pieceSprites: Map<string, Container> = new Map();
-  private shotEffects: ShotEffect[] = [];
+  private shotAnims: ShotAnim[] = [];
   private lastRenderedMoveCount = 0;
   private initialized = false;
   private destroyed = false;
@@ -534,12 +558,6 @@ export class GameCanvas {
     const fx = this.ox + from.col * cs + cs / 2, fy = this.oy + from.row * cs + cs / 2;
     const tx = this.ox + to.col * cs + cs / 2, ty = this.oy + to.row * cs + cs / 2;
 
-    // Glow trail
-    g.moveTo(fx, fy);
-    g.lineTo(tx, ty);
-    g.stroke({ color: this.theme.effects.arrowTrail, width: 6, alpha: 0.12 });
-
-    // Dashed move line
     const dx = tx - fx, dy = ty - fy;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const steps = Math.max(Math.floor(dist / 6), 2);
@@ -547,15 +565,13 @@ export class GameCanvas {
       g.moveTo(fx + dx * i / steps, fy + dy * i / steps);
       g.lineTo(fx + dx * Math.min(i + 1, steps) / steps, fy + dy * Math.min(i + 1, steps) / steps);
     }
-    g.stroke({ color: this.theme.effects.arrowTrail, width: 2.5, alpha: 0.45 });
-
+    g.stroke({ color: this.theme.effects.arrowTrail, width: 2, alpha: 0.4 });
     this.effectLayer.addChild(g);
-    setTimeout(() => { this.effectLayer.removeChild(g); g.destroy(); }, 3000);
+    setTimeout(() => { this.effectLayer.removeChild(g); g.destroy(); }, 2500);
   }
 
   // ========== Animated shot system ==========
 
-  /** Launch a shot animation from `from` position to `to` target. */
   private startShotEffect(from: Position, to: Position): void {
     const cs = this.cellSize;
     const fx = this.ox + from.col * cs + cs / 2;
@@ -563,120 +579,109 @@ export class GameCanvas {
     const tx = this.ox + to.col * cs + cs / 2;
     const ty = this.oy + to.row * cs + cs / 2;
 
-    const dx = tx - fx, dy = ty - fy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx);
-
-    // Generate impact particles
-    const particles: ShotEffect['particles'] = [];
+    const dist = Math.sqrt((tx - fx) ** 2 + (ty - fy) ** 2);
+    const color = this.theme.effects.arrow;
     const pColor = this.theme.effects.particle;
-    for (let i = 0; i < 16; i++) {
-      const a = angle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.8;
-      const speed = 40 + Math.random() * 100;
-      particles.push({
-        x: tx, y: ty,
-        vx: Math.cos(a) * speed,
-        vy: Math.sin(a) * speed,
-        life: 0.4 + Math.random() * 0.5,
-        maxLife: 0.4 + Math.random() * 0.5,
-        color: Math.random() > 0.5 ? pColor : this.theme.effects.burnGlow,
-        size: 3 + Math.random() * 6,
-      });
+    const burnColor = this.theme.effects.burnGlow;
+
+    // Pre-spawn particles (pool allocation)
+    const particles: Particle[] = [];
+    for (let i = 0; i < 30; i++) {
+      const p = poolGet();
+      p.x = tx; p.y = ty;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 180;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed;
+      p.life = 0.35 + Math.random() * 0.45;
+      p.maxLife = p.life;
+      p.color = i < 10 ? color : (i < 20 ? pColor : burnColor);
+      p.size = 2 + Math.random() * 5;
+      particles.push(p);
     }
 
-    this.shotEffects.push({
+    this.shotAnims.push({
       fx, fy, tx, ty,
-      startTime: performance.now(),
-      duration: Math.max(300, Math.min(600, dist * 1.5)),
-      color: this.theme.effects.arrow,
+      elapsed: 0,
+      duration: Math.max(250, Math.min(450, dist * 1.2)),
+      color,
       particles,
-      done: false,
+      phase: 'fly',
     });
   }
 
-  /** Render all active shot animations (called from ticker). */
-  private renderShotEffects(): void {
-    const now = performance.now();
-    // Use a single Graphics per frame for all effects
-    if (this.shotEffects.length === 0) return;
+  /** Render shot animations with proper easing & particle pool (called from ticker). */
+  private renderShotEffects(dt: number): void {
+    if (this.shotAnims.length === 0) return;
     const g = new Graphics();
+    const cs = this.cellSize;
 
-    for (const fx of this.shotEffects) {
-      const elapsed = now - fx.startTime;
-      const t = Math.min(elapsed / fx.duration, 1);
-      // Ease-out
-      const et = 1 - (1 - t) * (1 - t);
+    for (let i = this.shotAnims.length - 1; i >= 0; i--) {
+      const a = this.shotAnims[i];
+      a.elapsed += dt;
 
-      // Arrow head position interpolated along path
-      const hx = fx.fx + (fx.tx - fx.fx) * et;
-      const hy = fx.fy + (fx.ty - fx.fy) * et;
+      if (a.phase === 'fly') {
+        const t = Math.min(a.elapsed / a.duration, 1);
+        const et = Ease.inQuad(t); // fast acceleration (bowstring release)
+        const hx = a.fx + (a.tx - a.fx) * et;
+        const hy = a.fy + (a.ty - a.fy) * et;
 
-      // Glow trail behind the arrow head
-      const trailLen = 0.3;
-      const tStart = Math.max(0, et - trailLen);
-      const sx = fx.fx + (fx.tx - fx.fx) * tStart;
-      const sy = fx.fy + (fx.ty - fx.fy) * tStart;
+        // Trail: fading glow behind the arrow head
+        const trailStart = Math.max(0, et - 0.25);
+        const sx = a.fx + (a.tx - a.fx) * trailStart;
+        const sy = a.fy + (a.ty - a.fy) * trailStart;
+        g.moveTo(sx, sy);
+        g.lineTo(hx, hy);
+        g.stroke({ color: a.color, width: 3, alpha: 0.55 * (1 - t * 0.3) });
 
-      // Trail glow (wide)
-      g.moveTo(sx, sy);
-      g.lineTo(hx, hy);
-      g.stroke({ color: fx.color, width: 6, alpha: 0.15 * (1 - t * 0.3) });
+        // Arrow head
+        const angle = Math.atan2(a.ty - a.fy, a.tx - a.fx);
+        const hl = Math.max(6, cs * 0.11);
+        const ha = Math.PI / 5;
+        g.moveTo(hx, hy);
+        g.lineTo(hx - hl * Math.cos(angle - ha), hy - hl * Math.sin(angle - ha));
+        g.lineTo(hx - hl * 0.25 * Math.cos(angle), hy - hl * 0.25 * Math.sin(angle));
+        g.lineTo(hx - hl * Math.cos(angle + ha), hy - hl * Math.sin(angle + ha));
+        g.closePath();
+        g.fill({ color: a.color, alpha: 0.75 });
 
-      // Trail core
-      g.moveTo(sx, sy);
-      g.lineTo(hx, hy);
-      g.stroke({ color: fx.color, width: 2.5, alpha: 0.55 * (1 - t * 0.3) });
-
-      // Arrow head at current position
-      const angle = Math.atan2(fx.ty - fx.fy, fx.tx - fx.fx);
-      const hl = Math.max(7, this.cellSize * 0.12);
-      const ha = Math.PI / 4.5;
-      g.moveTo(hx, hy);
-      g.lineTo(hx - hl * Math.cos(angle - ha), hy - hl * Math.sin(angle - ha));
-      g.lineTo(hx - hl * 0.3 * Math.cos(angle), hy - hl * 0.3 * Math.sin(angle));
-      g.lineTo(hx - hl * Math.cos(angle + ha), hy - hl * Math.sin(angle + ha));
-      g.closePath();
-      g.fill({ color: fx.color, alpha: 0.7 + 0.3 * (1 - t) });
-
-      // Impact burst at target (only when close enough)
-      if (et > 0.6) {
-        const burstProgress = (et - 0.6) / 0.4;
-        const br = burstProgress * this.cellSize * 0.35;
-        g.circle(fx.tx, fx.ty, br);
-        g.fill({ color: this.theme.effects.burnGlow, alpha: 0.12 * (1 - burstProgress * 0.5) });
-        g.circle(fx.tx, fx.ty, br * 0.6);
-        g.stroke({ color: this.theme.effects.arrow, width: 2, alpha: 0.4 * (1 - burstProgress) });
+        if (t >= 1) {
+          a.phase = 'impact';
+          a.elapsed = 0;
+          // Activate particles on impact
+          for (const p of a.particles) { p.life = p.maxLife; }
+        }
       }
 
-      // Update particles
-      const dt = Math.min(elapsed / 1000, 0.05);
-      for (const p of fx.particles) {
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.vx *= 0.92;
-        p.vy *= 0.92;
-        p.life -= dt;
-      }
-      // Draw particles
-      for (const p of fx.particles) {
+      // Particle update & render (both phases, once activated)
+      for (const p of a.particles) {
+        if (p.life <= 0) continue;
+        const pdt = Math.min(dt, 0.05);
+        p.x += p.vx * pdt;
+        p.y += p.vy * pdt;
+        p.vx *= 0.94;
+        p.vy *= 0.94;
+        p.life -= pdt;
         if (p.life <= 0) continue;
         const alpha = p.life / p.maxLife;
-        g.circle(p.x, p.y, p.size * alpha);
-        g.fill({ color: p.color, alpha: alpha * 0.7 });
+        g.circle(p.x, p.y, p.size * (0.4 + alpha * 0.6));
+        g.fill({ color: p.color, alpha: alpha * 0.6 });
+      }
+
+      // Cleanup finished animations
+      if (a.phase === 'impact' && a.elapsed > 1.0) {
+        for (const p of a.particles) poolPut(p);
+        this.shotAnims.splice(i, 1);
       }
     }
 
     this.effectLayer.addChild(g);
-    // Clean up after the frame
-    setTimeout(() => {
-      this.effectLayer.removeChild(g);
-      g.destroy();
-      // Remove completed effects after render
-      this.shotEffects = this.shotEffects.filter(fx => {
-        const elapsed = performance.now() - fx.startTime;
-        return elapsed < fx.duration + 800; // extra time for particles
-      });
-    }, 50);
+    // Remove after this frame
+    const frameGfx = g;
+    this.app.ticker.addOnce(() => {
+      this.effectLayer.removeChild(frameGfx);
+      frameGfx.destroy();
+    });
   }
 
   // ========== Interaction ==========
@@ -756,7 +761,8 @@ export class GameCanvas {
       if (sel) sel.alpha = 0.65 + Math.sin(now / 1000 * 3.5) * 0.35;
     }
 
-    // Render animated shot effects
-    this.renderShotEffects();
+    // Render animated shot effects with deltaTime
+    const dt = this.app.ticker.deltaMS / 1000;
+    this.renderShotEffects(dt);
   }
 }
