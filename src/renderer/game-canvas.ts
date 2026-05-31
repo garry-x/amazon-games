@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, Sprite, Texture } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js';
 import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
@@ -124,7 +124,7 @@ export class GameCanvas {
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     container.appendChild(canvas);
-    this.setupInteraction();
+    this.setupPixiInteraction();
 
     this.app.ticker.add(() => this.tick());
 
@@ -263,6 +263,7 @@ export class GameCanvas {
     const h = this.container.clientHeight;
     if (w === 0 || h === 0) return;
     this.app.renderer.resize(w, h);
+    this.updateStageHitArea();
     this.positionBackground();
     this.recalcSize();
     this.redraw();
@@ -753,72 +754,52 @@ export class GameCanvas {
 
   // ========== Interaction ==========
 
-  private setupInteraction(): void {
-    if (!this.app?.canvas) return;
-    const canvas = this.app.canvas as HTMLCanvasElement;
-    canvas.style.cursor = 'pointer';
-    canvas.style.touchAction = 'none';
-    canvas.tabIndex = 0; // make focusable for keyboard events
-    canvas.style.outline = 'none';
+  /**
+   * Use PixiJS's built-in event system for reliable cross-platform interaction.
+   * PixiJS internally handles touch→pointer mapping correctly for all devices.
+   */
+  private setupPixiInteraction(): void {
+    const stage = this.app.stage;
+    // Enable interaction on the stage (required for events to fire)
+    stage.eventMode = 'static';
+    // Full-screen hit area covering the renderer viewport
+    stage.hitArea = new Rectangle(0, 0, this.app.renderer.width, this.app.renderer.height);
 
-    const handleDown = (e: MouseEvent | Touch) => {
-      const pos = this.eventToPos(e);
+    // Pointer events (works for mouse + touch on all devices)
+    stage.on('pointerdown', (e) => {
+      const pos = this.eventToPos(e.global);
       if (pos && this.onCellClick) this.onCellClick(pos);
-    };
-
-    // Desktop: click
-    canvas.addEventListener('click', (e: MouseEvent) => {
-      // Skip if this is a synthesized click from touch (handled by touchstart)
-      if (e.detail === 0) return;
-      handleDown(e);
     });
 
-    // Mobile: touchstart (more reliable than pointerdown on some devices)
-    canvas.addEventListener('touchstart', (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.touches.length > 0) {
-        handleDown(e.touches[0]);
-      }
-    }, { passive: false });
-
-    // Prevent touchend from generating a click
-    canvas.addEventListener('touchend', (e: TouchEvent) => {
-      e.preventDefault();
-    }, { passive: false });
-
-    // Also handle pointerdown as a modern fallback
-    canvas.addEventListener('pointerdown', (e: PointerEvent) => {
-      // Touch handled by touchstart, skip
-      if (e.pointerType === 'touch') return;
-      handleDown(e);
-    });
-
-    // Hover/move tracking
-    canvas.addEventListener('mousemove', (e: MouseEvent) => {
-      const next = this.eventToPos(e);
+    stage.on('pointermove', (e) => {
+      const next = this.eventToPos(e.global);
       const changed = (this.hoveredCell === null) !== (next === null)
         || (this.hoveredCell && next && !posEqual(this.hoveredCell, next));
       this.hoveredCell = next;
       if (changed && this.initialized) this.redraw();
     });
-    canvas.addEventListener('mouseleave', () => {
+
+    stage.on('pointerleave', () => {
+      this.hoveredCell = null;
+      if (this.initialized) this.redraw();
+    });
+
+    stage.on('pointerupoutside', () => {
       this.hoveredCell = null;
       if (this.initialized) this.redraw();
     });
   }
 
-  private eventToPos(e: { clientX: number; clientY: number }): Position | null {
-    if (!this.state || this.cellSize === 0 || !this.app?.canvas) return null;
-    const canvas = this.app.canvas as HTMLCanvasElement;
-    const rect = canvas.getBoundingClientRect();
-    // Use ratio-based mapping (handles DPI / scaling correctly)
-    const rx = (e.clientX - rect.left) / rect.width;
-    const ry = (e.clientY - rect.top) / rect.height;
-    const px = rx * canvas.width;
-    const py = ry * canvas.height;
-    const col = Math.floor((px - this.ox) / this.cellSize);
-    const row = Math.floor((py - this.oy) / this.cellSize);
+  /** Update stage hit area when canvas resizes */
+  private updateStageHitArea(): void {
+    if (!this.app?.renderer) return;
+    this.app.stage.hitArea = new Rectangle(0, 0, this.app.renderer.width, this.app.renderer.height);
+  }
+
+  private eventToPos(pt: { x: number; y: number }): Position | null {
+    if (!this.state || this.cellSize === 0) return null;
+    const col = Math.floor((pt.x - this.ox) / this.cellSize);
+    const row = Math.floor((pt.y - this.oy) / this.cellSize);
     if (row < 0 || row >= this.state.boardSize || col < 0 || col >= this.state.boardSize) return null;
     return { row, col };
   }
