@@ -2,15 +2,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../store/ui-store';
 import { useGameStore } from '../store/game-store';
 import { GameSetup } from './GameSetup';
-import { GameBoard } from './GameBoard';
 import { GameHUD } from './GameHUD';
-import { MoveHistory } from './MoveHistory';
 import { ThemePicker } from './ThemePicker';
-import { ResultDialog } from './ResultDialog';
-import { Tutorial } from './Tutorial';
 import { PlayerPanel } from './PlayerPanel';
-import { useState, useMemo } from 'react';
+import { lazy, Suspense, useState, useMemo } from 'react';
 import type { BoardSize, VariantConfig } from '../game/types';
+
+const GameBoard = lazy(() => import('./GameBoard').then(module => ({ default: module.GameBoard })));
+const MoveHistory = lazy(() => import('./MoveHistory').then(module => ({ default: module.MoveHistory })));
+const ResultDialog = lazy(() => import('./ResultDialog').then(module => ({ default: module.ResultDialog })));
+const Tutorial = lazy(() => import('./Tutorial').then(module => ({ default: module.Tutorial })));
 
 // Stable particle configs (no Math.random in render)
 const PARTICLES = Array.from({ length: 32 }, (_, i) => ({
@@ -92,7 +93,7 @@ export function Layout() {
         <AnimatePresence>
           {showSetup && (
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              initial={false}
               exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
               className="absolute inset-0 z-20">
               <GameSetup onStart={handleStart} />
@@ -103,8 +104,10 @@ export function Layout() {
         {!showSetup && gameState && (
           <div className="flex-1 flex relative">
             <div className="flex-1 relative">
-              <GameBoard />
-<div className="absolute top-4 left-4 z-10"><GameHUD /></div>
+              <Suspense fallback={<div className="absolute inset-0" />}>
+                <GameBoard />
+              </Suspense>
+              <div className="absolute top-4 left-4 z-10"><GameHUD /></div>
               <PlayerPanel />
             </div>
             <AnimatePresence>
@@ -115,7 +118,9 @@ export function Layout() {
                   className="border-l overflow-hidden"
                   style={{ borderColor: accent + '18', background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(12px)' }}
                 >
-                  <MoveHistory />
+                  <Suspense fallback={null}>
+                    <MoveHistory />
+                  </Suspense>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -123,10 +128,18 @@ export function Layout() {
         )}
 
         <AnimatePresence>
-          {gameState?.phase === 'finished' && <ResultDialog />}
+          {gameState?.phase === 'finished' && (
+            <Suspense fallback={null}>
+              <ResultDialog />
+            </Suspense>
+          )}
         </AnimatePresence>
 
-        <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+        {showTutorial && (
+          <Suspense fallback={null}>
+            <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+          </Suspense>
+        )}
       </div>
     </div>
   );

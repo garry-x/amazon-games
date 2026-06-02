@@ -8,19 +8,19 @@ export function GameHUD() {
   const gameState = useGameStore(s => s.gameState);
   const variant = useGameStore(s => s.variant);
   const aiThinking = useGameStore(s => s.aiThinking);
-  const aiConfig = useGameStore(s => s.aiConfig);
   const forfeit = useGameStore(s => s.forfeit);
   const theme = useUIStore(s => s.theme);
   const gameStartTime = useGameStore(s => s.gameStartTime);
   const [elapsed, setElapsed] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
+  const isPlaying = gameState?.phase === 'playing';
 
   // Timer — must be before early return (React hooks rules)
   useEffect(() => {
-    if (!gameStartTime || !gameState || gameState.phase !== 'playing') return;
+    if (!gameStartTime || !isPlaying) return;
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - gameStartTime) / 1000)), 1000);
     return () => clearInterval(id);
-  }, [gameStartTime, gameState?.phase]);
+  }, [gameStartTime, isPlaying]);
 
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
   const whiteClr = useMemo(() => '#' + theme.pieces.whiteGlow.toString(16).padStart(6, '0'), [theme]);

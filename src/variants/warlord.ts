@@ -1,7 +1,6 @@
 import type { VariantConfig, BoardSize, Position } from '../game/types';
 
 function warlordPositions(size: BoardSize): Position[][] {
-  const mid = Math.floor(size / 2);
   return [
     // 白方：放在棋盘上方两侧
     [

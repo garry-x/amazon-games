@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore, ALL_THEMES } from '../store/ui-store';
-import type { Theme } from '../themes/types';
 
 export function ThemePicker() {
   const { theme, setTheme } = useUIStore();

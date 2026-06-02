@@ -5,7 +5,7 @@ import {
   createInitialState, selectAmazon, moveAmazon, shootArrow,
   checkCurrentPlayerStuck, hasAnyLegalMove,
 } from '../game/game-state';
-import { opponent, posEqual } from '../game/rules';
+import { opponent } from '../game/rules';
 import { classicVariant } from '../variants/classic';
 import { warlordVariant } from '../variants/warlord';
 import { siegeVariant } from '../variants/siege';
@@ -23,6 +23,33 @@ export interface AIConfig {
   difficulty: AIDifficulty;
 }
 
+const AI_CONFIG_KEY = 'amazon-games.ai-config';
+const DEFAULT_AI_CONFIG: AIConfig = { enabled: false, aiPlayer: 'black', difficulty: 'medium' };
+let aiAbortController: AbortController | null = null;
+let aiRunId = 0;
+
+function loadAIConfig(): AIConfig {
+  if (typeof localStorage === 'undefined') return DEFAULT_AI_CONFIG;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AI_CONFIG_KEY) ?? 'null') as Partial<AIConfig> | null;
+    if (!parsed) return DEFAULT_AI_CONFIG;
+    return { ...DEFAULT_AI_CONFIG, ...parsed };
+  } catch {
+    return DEFAULT_AI_CONFIG;
+  }
+}
+
+function saveAIConfig(config: AIConfig): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+}
+
+function cancelAIMove(): void {
+  aiRunId += 1;
+  aiAbortController?.abort();
+  aiAbortController = null;
+}
+
 interface GameStore {
   gameState: GameState | null;
   variant: VariantConfig | null;
@@ -36,18 +63,24 @@ interface GameStore {
   handleCellClick: (pos: Position) => void;
   forfeit: () => void;
   triggerAIMove: () => Promise<void>;
+  cancelAIMove: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   gameState: null,
   variant: null,
-  aiConfig: { enabled: false, aiPlayer: 'black', difficulty: 'medium' },
+  aiConfig: loadAIConfig(),
   aiThinking: false,
   gameStartTime: 0,
 
-  setAIConfig: (config) => set(s => ({ aiConfig: { ...s.aiConfig, ...config } })),
+  setAIConfig: (config) => set(s => {
+    const aiConfig = { ...s.aiConfig, ...config };
+    saveAIConfig(aiConfig);
+    return { aiConfig };
+  }),
 
   startGame: (variant, boardSize) => {
+    cancelAIMove();
     const positions = variant.startingPositions(boardSize);
     const state = createInitialState(boardSize, positions);
 
@@ -66,6 +99,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetGame: () => {
+    cancelAIMove();
     const { variant, gameState } = get();
     if (variant && gameState) {
       const positions = variant.startingPositions(gameState.boardSize);
@@ -124,6 +158,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   forfeit: () => {
+    cancelAIMove();
     const { gameState } = get();
     if (!gameState || gameState.phase !== 'playing') return;
     set({ gameState: { ...gameState, phase: 'finished', winner: opponent(gameState.currentPlayer) } });
@@ -135,10 +170,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!aiConfig.enabled || gameState.currentPlayer !== aiConfig.aiPlayer) return;
     if (aiThinking) return; // prevent concurrent AI requests
 
+    cancelAIMove();
+    const runId = aiRunId;
+    aiAbortController = new AbortController();
     set({ aiThinking: true });
 
     try {
-      const move = await getAIMove(gameState, aiConfig.difficulty);
+      const move = await getAIMove(gameState, aiConfig.difficulty, 2, 25000, aiAbortController.signal);
+      if (runId !== aiRunId) return;
       if (!move) {
         // AI has no moves — forfeit
         set({
@@ -177,8 +216,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         setTimeout(() => get().triggerAIMove(), 500);
       }
     } finally {
-      set({ aiThinking: false });
+      if (runId === aiRunId) {
+        aiAbortController = null;
+        set({ aiThinking: false });
+      }
     }
+  },
+
+  cancelAIMove: () => {
+    cancelAIMove();
+    set({ aiThinking: false });
   },
 }));
 

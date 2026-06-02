@@ -1,10 +1,10 @@
-import type { Position, GameState, Player } from '../game/types';
-import { getQueenMoves, buildBlockedSet, posKey } from '../game/rules';
+import type { GameState, Player } from '../game/types';
+import { getQueenMoves, buildBlockedSet } from '../game/rules';
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
-const API_URL = 'http://127.0.0.1:8000/v1/chat/completions';
-const MODEL = 'Qwen/Qwen3.6-35B-A3B-FP8';
+const API_URL = import.meta.env.VITE_AI_API_URL ?? 'http://127.0.0.1:8000/v1/chat/completions';
+const MODEL = import.meta.env.VITE_AI_MODEL ?? 'Qwen/Qwen3.6-35B-A3B-FP8';
 
 /** Build a text representation of the board */
 function boardToString(state: GameState): string {
@@ -43,12 +43,12 @@ interface AIMove {
 }
 
 /** Build the system prompt for the AI */
-function buildSystemPrompt(difficulty: AIDifficulty, player: Player): string {
+function buildSystemPrompt(difficulty: AIDifficulty, player: Player, boardSize: number): string {
   const opponent = player === 'white' ? 'black' : 'white';
   return `You are playing the Game of the Amazons as the ${player} player. Your opponent is ${opponent}.
 
 RULES:
-- The board is ${player === 'white' ? 'numbered 1-10 from top to bottom' : 'numbered 1-10 from bottom to top'}.
+- The board columns are A-${String.fromCharCode(64 + boardSize)} and rows are 1-${boardSize}.
 - W = your amazon, B = opponent amazon, # = burned (blocked), . = empty
 - On your turn you must: 1) Move one of your amazons (like a chess queen — any distance horizontally, vertically, or diagonally through empty squares). 2) From the new position, shoot an arrow (also like a queen) to burn a square.
 - You CANNOT move through or land on other amazons or burned squares.
@@ -113,9 +113,10 @@ async function requestMove(
   boardStr: string,
   difficulty: AIDifficulty,
   player: Player,
+  boardSize: number,
   signal?: AbortSignal,
 ): Promise<string> {
-  const system = buildSystemPrompt(difficulty, player);
+  const system = buildSystemPrompt(difficulty, player, boardSize);
   const userMsg = `Current board state (${player} to move):\n\n${boardStr}\n\nChoose the best move for ${player}. Reply with the MOVE: format only.`;
 
   const res = await fetch(API_URL, {
@@ -170,6 +171,7 @@ export async function getAIMove(
   difficulty: AIDifficulty,
   maxRetries = 2,
   timeoutMs = 25000,
+  signal?: AbortSignal,
 ): Promise<AIMove | null> {
   const boardStr = boardToString(state);
   const player = state.currentPlayer;
@@ -177,10 +179,13 @@ export async function getAIMove(
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const controller = new AbortController();
+      const abort = () => controller.abort();
+      signal?.addEventListener('abort', abort, { once: true });
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-      const text = await requestMove(boardStr, difficulty, player, controller.signal);
+      const text = await requestMove(boardStr, difficulty, player, state.boardSize, controller.signal);
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
 
       const move = parseAIResponse(text, state.boardSize);
       if (move && isValidMove(state, move)) {
@@ -188,8 +193,10 @@ export async function getAIMove(
         return move;
       }
       console.warn(`AI move invalid, retry ${attempt + 1}/${maxRetries}`);
-    } catch (err: any) {
-      console.error(`AI request failed (attempt ${attempt + 1}):`, err.message);
+    } catch (err: unknown) {
+      if (signal?.aborted) return null;
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`AI request failed (attempt ${attempt + 1}):`, message);
     }
   }
 
@@ -205,26 +212,42 @@ export function getRandomMove(state: GameState): AIMove | null {
   if (playerAmazons.length === 0) return null;
 
   const blocked = buildBlockedSet(state.amazons, state.burnedCells);
+  const opponentAmazons = state.amazons.filter(a => a.player !== player);
+  let best: { move: AIMove; score: number } | null = null;
 
-  // Shuffle and try
-  const shuffled = [...playerAmazons].sort(() => Math.random() - 0.5);
-  for (const amazon of shuffled) {
+  for (const amazon of playerAmazons) {
     const moves = getQueenMoves(amazon.position, state.boardSize, blocked);
     if (moves.length === 0) continue;
-    // Pick random move
-    const moveTo = moves[Math.floor(Math.random() * moves.length)];
-    const tempAmazons = state.amazons.map(a =>
-      a.id === amazon.id ? { ...a, position: { row: moveTo.row, col: moveTo.col } } : a,
-    );
-    const newBlocked = buildBlockedSet(tempAmazons, state.burnedCells);
-    const shots = getQueenMoves(moveTo, state.boardSize, newBlocked);
-    if (shots.length === 0) continue;
-    const shot = shots[Math.floor(Math.random() * shots.length)];
-    return {
-      fromRow: amazon.position.row, fromCol: amazon.position.col,
-      toRow: moveTo.row, toCol: moveTo.col,
-      arrowRow: shot.row, arrowCol: shot.col,
-    };
+
+    for (const moveTo of moves) {
+      const tempAmazons = state.amazons.map(a =>
+        a.id === amazon.id ? { ...a, position: { row: moveTo.row, col: moveTo.col } } : a,
+      );
+      const newBlocked = buildBlockedSet(tempAmazons, state.burnedCells);
+      const shots = getQueenMoves(moveTo, state.boardSize, newBlocked);
+      if (shots.length === 0) continue;
+
+      for (const shot of shots) {
+        const nearestOpponent = opponentAmazons.reduce<number>((nearest, opp) => {
+          const dist = Math.max(Math.abs(shot.row - opp.position.row), Math.abs(shot.col - opp.position.col));
+          return Math.min(nearest, dist);
+        }, state.boardSize);
+        const center = (state.boardSize - 1) / 2;
+        const centerDistance = Math.abs(moveTo.row - center) + Math.abs(moveTo.col - center);
+        const score = shots.length * 2 - centerDistance - nearestOpponent * 0.6 + Math.random() * 0.01;
+        if (!best || score > best.score) {
+          best = {
+            score,
+            move: {
+              fromRow: amazon.position.row, fromCol: amazon.position.col,
+              toRow: moveTo.row, toCol: moveTo.col,
+              arrowRow: shot.row, arrowCol: shot.col,
+            },
+          };
+        }
+      }
+    }
   }
-  return null;
+
+  return best?.move ?? null;
 }

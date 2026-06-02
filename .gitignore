@@ -28,3 +28,4 @@ dist-ssr
 .dev-server.pid
 logs/*.log
 .gitnexus
+screenshots/

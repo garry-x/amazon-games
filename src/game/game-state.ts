@@ -1,5 +1,5 @@
 import type {
-  GameState, GamePhase, Player, Position,
+  GameState, Player, Position,
   Move, Amazon, BoardSize, GameStats,
 } from './types';
 import { posEqual, posKey, buildBlockedSet, getQueenMoves, opponent, clonePos } from './rules';
@@ -113,13 +113,12 @@ export function getLegalShots(state: GameState): Position[] {
   if (state.step !== 'shoot' || !state.pendingMoveTo) return [];
 
   // 创建包含新位置的临时亚马逊列表
-  const tempAmazons = state.amazons.map(a =>
-    a.id === state.selectedAmazonId
-      ? { ...a, position: clonePos(state.pendingMoveTo!) }
-      : a,
-  );
+  const amazon = state.amazons.find(a => a.id === state.selectedAmazonId);
+  if (!amazon) return [];
 
-  const blocked = buildBlockedSet(tempAmazons, state.burnedCells);
+  const blocked = buildBlockedSet(state.amazons, state.burnedCells);
+  blocked.delete(posKey(amazon.position));
+  blocked.add(posKey(state.pendingMoveTo));
   return getQueenMoves(state.pendingMoveTo, state.boardSize, blocked);
 }
 
@@ -129,6 +128,7 @@ export function getLegalShots(state: GameState): Position[] {
  */
 export function shootArrow(state: GameState, arrowTarget: Position): GameState | null {
   if (state.step !== 'shoot' || !state.selectedAmazonId || !state.pendingMoveTo) return null;
+  const pendingMoveTo = state.pendingMoveTo;
 
   const legal = getLegalShots(state);
   if (!legal.some(p => posEqual(p, arrowTarget))) return null;
@@ -138,14 +138,14 @@ export function shootArrow(state: GameState, arrowTarget: Position): GameState |
   const move: Move = {
     amazonId: state.selectedAmazonId,
     from: clonePos(fromPos),
-    to: clonePos(state.pendingMoveTo),
+    to: clonePos(pendingMoveTo),
     arrow: clonePos(arrowTarget),
   };
 
   // 更新亚马逊位置
   const newAmazons = state.amazons.map(a =>
     a.id === state.selectedAmazonId
-      ? { ...a, position: clonePos(state.pendingMoveTo) }
+      ? { ...a, position: clonePos(pendingMoveTo) }
       : a,
   );
 
@@ -168,25 +168,6 @@ export function shootArrow(state: GameState, arrowTarget: Position): GameState |
   }
 
   return newState;
-}
-
-/**
- * 检查当前局面是否已经结束。
- * 返回 null = 继续，Player = 该玩家胜，null（独立调用时）= 平局
- * 用于 shootArrow 后的判定：刚刚行动的玩家获胜条件是对手无法移动
- */
-function checkGameEndAfterMove(state: GameState, movingPlayer: Player): Player | null {
-  const other = opponent(movingPlayer);
-  if (!hasAnyLegalMove(state, other)) {
-    // 对手无法移动 → 当前行动玩家胜
-    return movingPlayer;
-  }
-  // 检查自己是否也无法移动（虽然刚移动完，但理论上可能）
-  if (!hasAnyLegalMove(state, movingPlayer)) {
-    // 双方都无法移动 → 平局
-    return null;
-  }
-  return undefined as any; // 游戏继续
 }
 
 /**
@@ -233,10 +214,9 @@ export function hasAnyLegalMove(state: GameState, player: Player): boolean {
     if (moves.length > 0) {
       // 还需要确认移动后还能射箭
       for (const moveTo of moves) {
-        const tempAmazons = state.amazons.map(a =>
-          a.id === amazon.id ? { ...a, position: clonePos(moveTo) } : a,
-        );
-        const newBlocked = buildBlockedSet(tempAmazons, state.burnedCells);
+        const newBlocked = new Set(blocked);
+        newBlocked.delete(posKey(amazon.position));
+        newBlocked.add(posKey(moveTo));
         const shots = getQueenMoves(moveTo, state.boardSize, newBlocked);
         if (shots.length > 0) return true;
       }

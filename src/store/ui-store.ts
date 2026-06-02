@@ -12,6 +12,19 @@ export const ALL_THEMES: Theme[] = [
   natureTheme,
 ];
 
+const THEME_KEY = 'amazon-games.theme';
+
+function loadTheme(): Theme {
+  if (typeof localStorage === 'undefined') return egyptianTheme;
+  const id = localStorage.getItem(THEME_KEY);
+  return ALL_THEMES.find(theme => theme.id === id) ?? egyptianTheme;
+}
+
+function saveTheme(theme: Theme): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(THEME_KEY, theme.id);
+}
+
 interface UIState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -21,10 +34,15 @@ interface UIState {
   setShowSetup: (show: boolean) => void;
 }
 
+const initialTheme = loadTheme();
+
 export const useUIStore = create<UIState>((set) => ({
-  theme: egyptianTheme,
-  setTheme: (theme) => set({ theme, previewTheme: theme }),
-  previewTheme: egyptianTheme,
+  theme: initialTheme,
+  setTheme: (theme) => {
+    saveTheme(theme);
+    set({ theme, previewTheme: theme });
+  },
+  previewTheme: initialTheme,
   setPreviewTheme: (previewTheme) => set({ previewTheme }),
   showSetup: true,
   setShowSetup: (show) => set({ showSetup: show }),

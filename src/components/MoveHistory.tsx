@@ -1,7 +1,6 @@
 import { useRef, useEffect, useMemo } from 'react';
 import { useGameStore } from '../store/game-store';
 import { useUIStore } from '../store/ui-store';
-import { motion } from 'framer-motion';
 
 export function MoveHistory() {
   const gameState = useGameStore(s => s.gameState);

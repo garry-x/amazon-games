@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/game-store';
 import { useUIStore } from '../store/ui-store';
@@ -36,25 +36,17 @@ export function PlayerPanel() {
   const aiConfig = useGameStore(s => s.aiConfig);
   const aiThinking = useGameStore(s => s.aiThinking);
   const theme = useUIStore(s => s.theme);
-  const [quote, setQuote] = useState<string | null>(null);
-  const [quoteTimer, setQuoteTimer] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [activeQuote, setActiveQuote] = useState(randomQuote);
 
   const accent = useMemo(() => '#' + theme.background.accent.toString(16).padStart(6, '0'), [theme]);
   const whiteAvatar = `/avatars/${theme.id}-white.webp`;
   const blackAvatar = `/avatars/${theme.id}-black.webp`;
 
-  // Show random quote when AI is thinking
   useEffect(() => {
-    if (aiThinking) {
-      setQuote(randomQuote());
-      const timer = setInterval(() => setQuote(randomQuote()), 4000);
-      setQuoteTimer(timer);
-      return () => clearInterval(timer);
-    } else {
-      setQuote(null);
-      if (quoteTimer) clearInterval(quoteTimer);
-    }
-  }, [aiThinking]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!aiThinking) return;
+    const timer = setInterval(() => setActiveQuote(randomQuote()), 4000);
+    return () => clearInterval(timer);
+  }, [aiThinking]);
 
   if (!gameState || gameState.phase !== 'playing') return null;
 
@@ -62,6 +54,7 @@ export function PlayerPanel() {
   const isAI = aiConfig.enabled;
   const blackIsAI = isAI && aiConfig.aiPlayer === 'black';
   const whiteIsAI = isAI && aiConfig.aiPlayer === 'white';
+  const quote = aiThinking ? activeQuote : null;
 
   return (
     <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none z-10">

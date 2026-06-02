@@ -11,17 +11,23 @@ export function GameBoard() {
   const gameState = useGameStore(s => s.gameState);
   const handleCellClick = useGameStore(s => s.handleCellClick);
   const theme = useUIStore(s => s.theme);
+  const handleCellClickRef = useRef(handleCellClick);
+  const initialThemeRef = useRef(theme);
+
+  useEffect(() => {
+    handleCellClickRef.current = handleCellClick;
+  }, [handleCellClick]);
 
   // Init once
   useEffect(() => {
     if (initializedRef.current || !containerRef.current) return;
     initializedRef.current = true;
 
-    const gc = new GameCanvas(theme);
+    const gc = new GameCanvas(initialThemeRef.current);
     gameCanvasRef.current = gc;
 
     gc.init(containerRef.current).then(() => {
-      gc.setOnCellClick((pos: Position) => handleCellClick(pos));
+      gc.setOnCellClick((pos: Position) => handleCellClickRef.current(pos));
     });
 
     return () => {
@@ -29,7 +35,7 @@ export function GameBoard() {
       gameCanvasRef.current = null;
       initializedRef.current = false;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync game state
   useEffect(() => {

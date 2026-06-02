@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore, ALL_THEMES } from '../store/ui-store';
 import { ALL_VARIANTS, useGameStore } from '../store/game-store';
 import type { AIDifficulty } from '../ai/engine';
-import { Tutorial } from './Tutorial';
 import type { BoardSize, VariantConfig } from '../game/types';
+
+const Tutorial = lazy(() => import('./Tutorial').then(module => ({ default: module.Tutorial })));
 
 interface Props {
   onStart: (variant: VariantConfig, boardSize: BoardSize) => void;
@@ -22,29 +23,58 @@ const AI_LEVELS: { value: AIDifficulty; label: string; desc: string }[] = [
   { value: 'hard', label: '高级', desc: '深度' },
 ];
 
+const SETUP_PREFS_KEY = 'amazon-games.setup';
+
+function loadSetupPrefs(): { variantId: string; boardSize: BoardSize } {
+  if (typeof localStorage === 'undefined') return { variantId: ALL_VARIANTS[0].id, boardSize: 10 };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SETUP_PREFS_KEY) ?? 'null') as Partial<{ variantId: string; boardSize: BoardSize }> | null;
+    return {
+      variantId: parsed?.variantId ?? ALL_VARIANTS[0].id,
+      boardSize: parsed?.boardSize ?? 10,
+    };
+  } catch {
+    return { variantId: ALL_VARIANTS[0].id, boardSize: 10 };
+  }
+}
+
+function initialSetup(): { variant: VariantConfig; boardSize: BoardSize } {
+  const prefs = loadSetupPrefs();
+  const variant = ALL_VARIANTS.find(v => v.id === prefs.variantId) ?? ALL_VARIANTS[0];
+  const boardSize = variant.recommendedSizes.includes(prefs.boardSize)
+    ? prefs.boardSize
+    : variant.recommendedSizes[0];
+  return { variant, boardSize };
+}
+
 export function GameSetup({ onStart }: Props) {
   const { previewTheme, setPreviewTheme, setTheme } = useUIStore();
   const aiConfig = useGameStore(s => s.aiConfig);
   const setAIConfig = useGameStore(s => s.setAIConfig);
-  const [variant, setVariant] = useState(ALL_VARIANTS[0]);
-  const [size, setSize] = useState<BoardSize>(10);
+  const [setup, setSetup] = useState(initialSetup);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const a = useMemo(() => '#' + previewTheme.background.accent.toString(16).padStart(6, '0'), [previewTheme]);
+  const { variant, boardSize: size } = setup;
   const validSizes = BOARD_SIZES.filter(s => variant.recommendedSizes.includes(s.size));
   const start = () => { setTheme(previewTheme); onStart(variant, size); };
 
-  const section = "rounded-2xl border p-4 sm:p-5";
+  useEffect(() => {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(SETUP_PREFS_KEY, JSON.stringify({ variantId: variant.id, boardSize: size }));
+  }, [size, variant.id]);
+
+  const section = "rounded-2xl border p-3 sm:p-5";
   const sectionLabel = "text-xs font-bold uppercase tracking-[0.1em] mb-3";
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 select-none overflow-y-auto">
+    <div className="w-full h-full flex flex-col items-center justify-start sm:justify-center px-3 sm:px-6 py-5 sm:py-8 select-none overflow-y-auto overflow-x-hidden">
 
       {/* Title */}
       <motion.div
-        initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        className="text-center mb-6 sm:mb-10">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-2"
+        initial={false}
+        className="text-center mb-4 sm:mb-10 px-2">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-2 whitespace-nowrap"
           style={{ color: a, textShadow: `0 0 40px ${a}44, 0 4px 10px rgba(0,0,0,0.6)` }}>
           ⚔ 亚马逊棋
         </h1>
@@ -55,9 +85,8 @@ export function GameSetup({ onStart }: Props) {
 
       {/* Config */}
       <motion.div
-        initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.08 }}
-        className="w-full max-w-2xl space-y-4">
+        initial={false}
+        className="w-full max-w-[calc(100vw-2rem)] sm:max-w-2xl space-y-3 sm:space-y-4">
 
         {/* Mode + Size */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -65,16 +94,19 @@ export function GameSetup({ onStart }: Props) {
             <div className={sectionLabel} style={{ color: a }}>游戏模式</div>
             <div className="space-y-2">
               {ALL_VARIANTS.map(v => (
-                <motion.button key={v.id} onClick={() => setVariant(v)} whileTap={{ scale: 0.98 }}
-                  className="w-full p-3 rounded-xl text-left border transition-colors flex items-center gap-3"
+                <motion.button key={v.id} onClick={() => setSetup(current => ({
+                  variant: v,
+                  boardSize: v.recommendedSizes.includes(current.boardSize) ? current.boardSize : v.recommendedSizes[0],
+                }))} whileTap={{ scale: 0.98 }}
+                  className="w-full p-2.5 sm:p-3 rounded-xl text-left border transition-colors flex items-center gap-2.5 sm:gap-3 min-w-0"
                   style={{
                     borderColor: variant.id === v.id ? a : 'rgba(255,255,255,0.06)',
                     background: variant.id === v.id ? a + '0d' : 'transparent',
                   }}>
                   <span className="text-xl">{v.id === 'classic' ? '🏛' : v.id === 'warlord' ? '⚡' : '🏰'}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-white/90">{v.name}</div>
-                    <div className="text-xs text-white/45 mt-0.5 truncate">{v.description}</div>
+                    <div className="text-sm font-bold text-white/90 leading-tight">{v.name}</div>
+                    <div className="text-xs text-white/45 mt-0.5 leading-snug line-clamp-2 sm:truncate">{v.description}</div>
                   </div>
                   <span className="text-[11px] font-medium text-white/30 flex-shrink-0 bg-white/5 px-2 py-0.5 rounded-full">{v.amazonCount}×2</span>
                 </motion.button>
@@ -86,8 +118,8 @@ export function GameSetup({ onStart }: Props) {
             <div className={sectionLabel} style={{ color: a }}>棋盘规格</div>
             <div className="space-y-2">
               {validSizes.map(({ size: s, label, desc }) => (
-                <motion.button key={s} onClick={() => setSize(s)} whileTap={{ scale: 0.98 }}
-                  className="w-full p-3 rounded-xl text-left border transition-colors flex items-center justify-between"
+                <motion.button key={s} onClick={() => setSetup(current => ({ ...current, boardSize: s }))} whileTap={{ scale: 0.98 }}
+                  className="w-full p-2.5 sm:p-3 rounded-xl text-left border transition-colors flex items-center justify-between gap-3"
                   style={{
                     borderColor: size === s ? a : 'rgba(255,255,255,0.06)',
                     background: size === s ? a + '0d' : 'transparent',
@@ -103,7 +135,7 @@ export function GameSetup({ onStart }: Props) {
         {/* Themes */}
         <div className={section} style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
           <div className={sectionLabel} style={{ color: a }}>视觉主题</div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
             {ALL_THEMES.map(t => {
               const active = previewTheme.id === t.id;
               return (
@@ -114,14 +146,14 @@ export function GameSetup({ onStart }: Props) {
                     borderColor: active ? a : 'rgba(255,255,255,0.06)',
                     background: active ? a + '0d' : 'rgba(255,255,255,0.02)',
                   }}>
-                  <div className="relative h-20 overflow-hidden">
+                  <div className="relative h-16 sm:h-20 overflow-hidden">
                     <img src={`/textures/${t.id}-board.webp`}
                       className="w-full h-full object-cover opacity-70" alt="" loading="lazy"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   </div>
-                  <div className="p-2.5 text-center">
-                    <div className="text-sm font-bold text-white/85">{t.name}</div>
-                    <div className="text-[11px] text-white/40 mt-0.5 leading-tight">{t.description}</div>
+                  <div className="p-2 sm:p-2.5 text-center">
+                    <div className="text-sm font-bold text-white/85 leading-tight">{t.name}</div>
+                    <div className="text-[11px] text-white/40 mt-0.5 leading-tight line-clamp-2">{t.description}</div>
                   </div>
                 </motion.button>
               );
@@ -200,7 +232,7 @@ export function GameSetup({ onStart }: Props) {
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3 pt-1">
+        <div className="flex gap-2 sm:gap-3 pt-1 pb-1">
           <motion.button onClick={() => setShowTutorial(true)}
             whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
             className="px-5 py-3.5 rounded-xl text-sm font-bold border transition-colors"
@@ -220,7 +252,11 @@ export function GameSetup({ onStart }: Props) {
         </div>
       </motion.div>
 
-      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+      {showTutorial && (
+        <Suspense fallback={null}>
+          <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

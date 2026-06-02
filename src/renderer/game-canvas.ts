@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix, Assets } from 'pixi.js';
+import { Application, Container, Graphics, Text, Sprite, Texture, Rectangle, Matrix, TextStyle } from 'pixi.js';
 
 /** Convert .png reference to .webp */
 function texURL(path: string): string {
@@ -8,30 +8,82 @@ import type { GameState, Position } from '../game/types';
 import type { Theme } from '../themes/types';
 import { posEqual, getQueenMoves, buildBlockedSet } from '../game/rules';
 
-// ── Easing functions ──
-const Ease = {
-  inQuad: (t: number) => t * t,
-  outCubic: (t: number) => 1 - Math.pow(1 - t, 3),
-  outBack: (t: number) => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
-};
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+const transparentImageCache = new Map<string, Promise<HTMLImageElement>>();
 
-// ── Particle pool (avoid GC) ──
-interface Particle {
-  x: number; y: number;
-  vx: number; vy: number;
-  life: number; maxLife: number;
-  color: number; size: number;
+function loadImageElement(url: string): Promise<HTMLImageElement> {
+  const cached = imageCache.get(url);
+  if (cached) return cached;
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      if (!url.endsWith('.webp')) {
+        reject(new Error(`Failed to load image: ${url}`));
+        return;
+      }
+
+      const fallback = new Image();
+      fallback.crossOrigin = 'anonymous';
+      fallback.onload = () => resolve(fallback);
+      fallback.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+      fallback.src = url.replace('.webp', '.png');
+    };
+    img.src = url;
+  });
+
+  imageCache.set(url, promise);
+  return promise;
 }
-const POOL_SIZE = 200;
-let particlePool: Particle[] = [];
-function poolGet(): Particle {
-  return particlePool.pop() || { x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 0, color: 0, size: 0 };
-}
-function poolPut(p: Particle) {
-  if (particlePool.length < POOL_SIZE) particlePool.push(p);
+
+function loadTransparentImage(url: string): Promise<HTMLImageElement> {
+  const cached = transparentImageCache.get(url);
+  if (cached) return cached;
+
+  const promise = loadImageElement(url).then((img) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return img;
+
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = data.data;
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+      const a = pixels[i + 3];
+      const isGreen = g > 120 && g > r * 1.1 && g > b * 1.1;
+      const isGray = r > 180 && g > 180 && b > 180 && Math.abs(r - g) < 40 && Math.abs(g - b) < 40;
+      const isMagenta = r > 150 && b > 150 && g < r * 0.6 && g < b * 0.6;
+      if (isGreen || isGray || isMagenta) pixels[i + 3] = 0;
+      if (a > 0 && g > 100 && g > r * 0.9 && g > b * 0.9) {
+        const greenness = (g - Math.max(r, b)) / 255;
+        pixels[i + 3] = Math.floor(a * Math.max(0, 1 - greenness * 2));
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+
+    return new Promise<HTMLImageElement>((resolve) => {
+      const outImg = new Image();
+      outImg.onload = () => resolve(outImg);
+      outImg.src = canvas.toDataURL('image/png');
+    });
+  });
+
+  transparentImageCache.set(url, promise);
+  return promise;
 }
 
 // ── Animation state ──
+type PieceContainer = Container & {
+  selRing?: Graphics;
+  pulsePhase?: number;
+};
+
 export class GameCanvas {
   private app!: Application;
   private bgContainer!: Container;
@@ -52,7 +104,8 @@ export class GameCanvas {
   private boardGfx: Graphics | null = null;
   private boardTexSprite: Sprite | null = null;
   private burnGfx: Container | null = null;
-  private pieceSprites: Map<string, Container> = new Map();
+  private pieceSprites: Map<string, PieceContainer> = new Map();
+  private pieceRenderKeys: Map<string, string> = new Map();
   private lastRedrawTime = 0;
   private lastBurnedCount = -1;
   private fireParticles: { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; cellKey: string }[] = [];
@@ -64,12 +117,14 @@ export class GameCanvas {
   private resizeObs: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
   private bgSprite: Sprite | null = null;
-  private texturesLoaded = false;
   private pieceTexWhite: Texture | null = null;
   private pieceTexBlack: Texture | null = null;
   private burnTex: Texture | null = null;
   private tileLight: Texture | null = null;
   private tileDark: Texture | null = null;
+  private textureRequestId = 0;
+  private legalMovesCache: { key: string; value: Position[] } | null = null;
+  private legalShotsCache: { key: string; value: Position[] } | null = null;
 
   constructor(theme: Theme) {
     this.theme = theme;
@@ -100,12 +155,14 @@ export class GameCanvas {
     if (this.destroyed) return;
 
     // Layer ordering: bg → board-tex → board-gfx → burn → pieces → effects
+    this.bgContainer = new Container();
     this.boardTexLayer = new Container();
     this.boardLayer = new Container();
     this.burnLayer = new Container();
     this.pieceLayer = new Container();
     this.effectLayer = new Container();
 
+    this.app.stage.addChild(this.bgContainer);
     this.app.stage.addChild(this.boardTexLayer);
     this.app.stage.addChild(this.boardLayer);
     this.app.stage.addChild(this.burnLayer);
@@ -145,7 +202,7 @@ export class GameCanvas {
     const changed = this.theme.id !== theme.id;
     this.theme = theme;
     if (this.initialized && this.app?.renderer) {
-      this.app.renderer.background = theme.background.primary;
+      this.app.renderer.background.color = theme.background.primary;
       if (changed) this.loadThemeTextures();
       this.redraw();
     }
@@ -154,6 +211,8 @@ export class GameCanvas {
   setState(state: GameState): void {
     if (!this.initialized || !this.app?.renderer) { this.pendingState = state; return; }
     this.state = state;
+    this.legalMovesCache = null;
+    this.legalShotsCache = null;
     this.recalcSize();
     this.redraw();
   }
@@ -179,11 +238,13 @@ export class GameCanvas {
 
   private loadThemeTextures(): void {
     const themeId = this.theme.id;
+    const requestId = ++this.textureRequestId;
+    this.lastBurnedCount = -1;
+    this.pieceRenderKeys.clear();
 
     // Background texture — rendered in PixiJS below everything
-    this.bgContainer = new Container();
-    this.app.stage.addChildAt(this.bgContainer, 0); // insert at bottom
     this.loadImage(texURL(`/textures/${themeId}-bg.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       if (this.bgSprite) { this.bgContainer.removeChild(this.bgSprite); this.bgSprite.destroy(); }
       const tex = Texture.from(img);
       this.bgSprite = new Sprite(tex);
@@ -194,96 +255,53 @@ export class GameCanvas {
 
     // Board texture
     this.loadImage(texURL(`/textures/${themeId}-board.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       if (this.boardTexSprite) { this.boardTexLayer.removeChild(this.boardTexSprite); this.boardTexSprite.destroy(); }
       this.boardTexSprite = new Sprite(Texture.from(img));
       this.boardTexLayer.addChild(this.boardTexSprite);
-      this.texturesLoaded = true;
       this.redraw();
     });
 
     // Piece textures
     this.loadTransparent(texURL(`/textures/${themeId}-piece-white.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       this.pieceTexWhite = Texture.from(img);
+      this.pieceRenderKeys.clear();
       this.redraw();
     });
     this.loadTransparent(texURL(`/textures/${themeId}-piece-black.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       this.pieceTexBlack = Texture.from(img);
+      this.pieceRenderKeys.clear();
       this.redraw();
     });
     // Burn/crater texture (transparent for overlay)
     this.loadTransparent(texURL(`/textures/${themeId}-burn.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       this.burnTex = Texture.from(img);
+      this.lastBurnedCount = -1;
       this.redraw();
     });
     // Tile textures
     this.loadImage(texURL(`/textures/${themeId}-tile-light.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       this.tileLight = Texture.from(img);
       this.redraw();
     });
     this.loadImage(texURL(`/textures/${themeId}-tile-dark.png`), (img) => {
+      if (requestId !== this.textureRequestId) return;
       this.tileDark = Texture.from(img);
       this.redraw();
     });
   }
 
   private loadImage(url: string, onLoad: (img: HTMLImageElement) => void): void {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => onLoad(img);
-    img.onerror = () => {
-      // WebP fallback → PNG
-      if (url.endsWith('.webp')) {
-        const pngUrl = url.replace('.webp', '.png');
-        const fallback = new Image();
-        fallback.crossOrigin = 'anonymous';
-        fallback.onload = () => onLoad(fallback);
-        fallback.src = pngUrl;
-      }
-    };
-    img.src = url;
+    loadImageElement(url).then(onLoad).catch(() => {});
   }
 
   /** Load image and remove background to create transparent texture */
   private loadTransparent(url: string, onLoad: (img: HTMLImageElement) => void): void {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      // Create offscreen canvas to strip magenta/green background
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0);
-      const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = data.data;
-
-      // Aggressive chroma key — removes green/white bg, keeps subject
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-        const a = pixels[i + 3];
-        // Key out green tones (broad range)
-        const isGreen = g > 120 && g > r * 1.1 && g > b * 1.1;
-        // Key out near-white/gray bg
-        const isGray = r > 180 && g > 180 && b > 180 && Math.abs(r - g) < 40 && Math.abs(g - b) < 40;
-        // Key out magenta
-        const isMagenta = r > 150 && b > 150 && g < r * 0.6 && g < b * 0.6;
-        if (isGreen || isGray || isMagenta) {
-          pixels[i + 3] = 0;
-        }
-        // Edge feather: partial transparency for semi-green pixels
-        if (a > 0 && g > 100 && g > r * 0.9 && g > b * 0.9) {
-          const greenness = (g - Math.max(r, b)) / 255;
-          pixels[i + 3] = Math.floor(a * Math.max(0, 1 - greenness * 2));
-        }
-      }
-      ctx.putImageData(data, 0, 0);
-
-      const outImg = new Image();
-      outImg.onload = () => onLoad(outImg);
-      outImg.src = canvas.toDataURL('image/png');
-    };
-    img.onerror = () => {};
-    img.src = url;
+    loadTransparentImage(url).then(onLoad).catch(() => {});
   }
 
   /** Scale background to fill viewport using renderer dimensions */
@@ -423,7 +441,7 @@ export class GameCanvas {
     // — Coordinate labels (subtle, outside the board) —
     const fs = Math.max(10, cs * 0.14);
     const pad = cs * 0.15;
-    const ls: any = { fontSize: fs, fill: this.theme.board.border, fontFamily: 'sans-serif', fontWeight: '500' };
+    const ls = new TextStyle({ fontSize: fs, fill: this.theme.board.border, fontFamily: 'sans-serif', fontWeight: '500' });
     for (let i = 0; i < size; i++) {
       const cl = new Text({ text: String.fromCharCode(65 + i), style: ls });
       cl.x = bx + i * cs + cs / 2 - cl.width / 2;
@@ -485,25 +503,26 @@ export class GameCanvas {
       }
     }
 
-    this.burnGfx = c as any;
+    this.burnGfx = c;
     this.burnLayer.addChild(c);
   }
 
   // ========== Highlights ==========
 
   private drawHighlights(): void {
-    if (!this.state) return;
+    const state = this.state;
+    if (!state) return;
     const g = this.boardGfx;
     if (!g) return;
 
-    if (this.state.moveHistory.length > 0) {
-      const last = this.state.moveHistory[this.state.moveHistory.length - 1];
+    if (state.moveHistory.length > 0) {
+      const last = state.moveHistory[state.moveHistory.length - 1];
       this.drawCellGlow(g, last.from, 0xffffff, 0.12);
       this.drawCellGlow(g, last.to, 0xffffff, 0.15);
     }
 
-    if (this.state.step === 'move' && this.state.selectedAmazonId) {
-      const amazon = this.state.amazons.find(a => a.id === this.state.selectedAmazonId);
+    if (state.step === 'move' && state.selectedAmazonId) {
+      const amazon = state.amazons.find(a => a.id === state.selectedAmazonId);
       if (amazon) {
         this.drawCellHighlight(g, amazon.position, this.theme.board.highlight, 0.55);
         for (const pos of this.getLegalMoves()) {
@@ -512,20 +531,20 @@ export class GameCanvas {
       }
     }
 
-    if (this.state.step === 'shoot' && this.state.pendingMoveTo) {
-      this.drawCellHighlight(g, this.state.pendingMoveTo, 0x44ff44, 0.3);
+    if (state.step === 'shoot' && state.pendingMoveTo) {
+      this.drawCellHighlight(g, state.pendingMoveTo, 0x44ff44, 0.3);
       for (const pos of this.getLegalShots()) {
         this.drawCellDot(g, pos, this.theme.board.shotHighlight, 0.5);
       }
     }
 
     if (this.hoveredCell) {
-      if (this.state.step === 'move' && this.state.selectedAmazonId) {
+      if (state.step === 'move' && state.selectedAmazonId) {
         const legal = this.getLegalMoves();
         if (legal.some(p => posEqual(p, this.hoveredCell!))) {
           this.drawCellHighlight(g, this.hoveredCell, 0x88ff88, 0.5);
         }
-      } else if (this.state.step === 'shoot') {
+      } else if (state.step === 'shoot') {
         const legal = this.getLegalShots();
         if (legal.some(p => posEqual(p, this.hoveredCell!))) {
           this.drawCellHighlight(g, this.hoveredCell, this.theme.board.shotHighlight, 0.5);
@@ -562,23 +581,68 @@ export class GameCanvas {
   // ========== Pieces ==========
 
   private drawPieces(): void {
-    for (const [, s] of this.pieceSprites) { this.pieceLayer.removeChild(s); s.destroy({ children: true }); }
-    this.pieceSprites.clear();
     if (!this.state) return;
+    const liveIds = new Set<string>();
 
     for (const amazon of this.state.amazons) {
+      liveIds.add(amazon.id);
+      const key = this.pieceRenderKey(amazon);
+      const existing = this.pieceSprites.get(amazon.id);
+      if (existing && this.pieceRenderKeys.get(amazon.id) === key) {
+        this.positionPiece(existing, amazon.position);
+        continue;
+      }
+
+      if (existing) {
+        this.pieceLayer.removeChild(existing);
+        existing.destroy({ children: true });
+      }
+
       const c = this.createPiece(amazon);
       this.pieceLayer.addChild(c);
       this.pieceSprites.set(amazon.id, c);
+      this.pieceRenderKeys.set(amazon.id, key);
+    }
+
+    for (const [id, sprite] of this.pieceSprites) {
+      if (!liveIds.has(id)) {
+        this.pieceLayer.removeChild(sprite);
+        sprite.destroy({ children: true });
+        this.pieceSprites.delete(id);
+        this.pieceRenderKeys.delete(id);
+      }
     }
 
     // Only trigger shot effect once when a new move is recorded
     if (this.state.moveHistory.length > this.lastRenderedMoveCount) {
       const last = this.state.moveHistory[this.state.moveHistory.length - 1];
       this.drawMoveArrow(last.from, last.to);
-      this.drawMoveArrow(last.from, last.to);
       this.lastRenderedMoveCount = this.state.moveHistory.length;
     }
+  }
+
+  private pieceRenderKey(
+    amazon: { id: string; player: 'white' | 'black'; position: Position },
+  ): string {
+    const selected = this.state?.selectedAmazonId === amazon.id ? 'selected' : 'idle';
+    const turn = this.state?.currentPlayer === amazon.player ? 'turn' : 'wait';
+    const hasTexture = amazon.player === 'white' ? !!this.pieceTexWhite : !!this.pieceTexBlack;
+    return [
+      this.theme.id,
+      this.cellSize,
+      amazon.player,
+      amazon.position.row,
+      amazon.position.col,
+      selected,
+      turn,
+      hasTexture ? 'tex' : 'fallback',
+    ].join('|');
+  }
+
+  private positionPiece(piece: PieceContainer, pos: Position): void {
+    const cs = this.cellSize;
+    piece.x = this.ox + pos.col * cs + cs / 2;
+    piece.y = this.oy + pos.row * cs + cs / 2;
   }
 
   /**
@@ -587,8 +651,8 @@ export class GameCanvas {
    */
   private createPiece(
     amazon: { id: string; player: 'white' | 'black'; position: Position },
-  ): Container {
-    const c = new Container();
+  ): PieceContainer {
+    const c = new Container() as PieceContainer;
     const cs = this.cellSize;
     const cx = this.ox + amazon.position.col * cs + cs / 2;
     const cy = this.oy + amazon.position.row * cs + cs / 2;
@@ -648,14 +712,14 @@ export class GameCanvas {
       sel.circle(0, 0, size * 0.58);
       sel.stroke({ color: 0x4ecdc4, width: 1, alpha: 0.3 });
       c.addChild(sel);
-      (c as any)._selRing = sel;
+      c.selRing = sel;
     }
 
     c.x = cx;
     c.y = cy;
 
     if (this.state && amazon.player === this.state.currentPlayer) {
-      (c as any)._pulsePhase = Math.random() * Math.PI * 2;
+      c.pulsePhase = Math.random() * Math.PI * 2;
     }
 
     return c;
@@ -691,6 +755,12 @@ export class GameCanvas {
 
     const cs = this.cellSize;
     const burnedSet = new Set(this.state.burnedCells.map(b => `${b.row},${b.col}`));
+    const particlesByCell = new Map<string, number>();
+    for (const p of this.fireParticles) {
+      if (burnedSet.has(p.cellKey)) {
+        particlesByCell.set(p.cellKey, (particlesByCell.get(p.cellKey) ?? 0) + 1);
+      }
+    }
 
     // Spawn new particles at each burned cell
     for (const b of this.state.burnedCells) {
@@ -698,7 +768,7 @@ export class GameCanvas {
       const cx = this.ox + b.col * cs + cs / 2;
       const cy = this.oy + b.row * cs + cs / 2;
       // Limit particles per cell
-      const existing = this.fireParticles.filter(p => p.cellKey === key).length;
+      const existing = particlesByCell.get(key) ?? 0;
       if (existing < 3 && Math.random() < 0.15) {
         this.fireParticles.push({
           x: cx + (Math.random() - 0.5) * cs * 0.5,
@@ -710,20 +780,22 @@ export class GameCanvas {
           size: 2 + Math.random() * 4,
           cellKey: key,
         });
+        particlesByCell.set(key, existing + 1);
       }
     }
 
     // Clean up particles for cells that are no longer burned
     this.fireParticles = this.fireParticles.filter(p => burnedSet.has(p.cellKey));
 
-    // Update and render
-    if (this.fireGfx) {
-      this.effectLayer.removeChild(this.fireGfx);
-      this.fireGfx.destroy();
+    if (!this.fireGfx) {
+      this.fireGfx = new Graphics();
+      this.effectLayer.addChild(this.fireGfx);
     }
+
+    const g = this.fireGfx;
+    g.clear();
     if (this.fireParticles.length === 0) return;
 
-    const g = new Graphics();
     for (const p of this.fireParticles) {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
@@ -742,9 +814,6 @@ export class GameCanvas {
     }
     // Remove dead particles
     this.fireParticles = this.fireParticles.filter(p => p.life > 0);
-
-    this.fireGfx = g;
-    this.effectLayer.addChild(g);
   }
 
   // ========== Interaction ==========
@@ -804,19 +873,48 @@ export class GameCanvas {
   }
 
   private getLegalMoves(): Position[] {
-    if (!this.state?.selectedAmazonId) return [];
-    const am = this.state.amazons.find(a => a.id === this.state.selectedAmazonId);
+    const state = this.state;
+    if (!state?.selectedAmazonId) return [];
+    const key = this.legalCacheKey('move', state);
+    if (this.legalMovesCache?.key === key) return this.legalMovesCache.value;
+    const am = state.amazons.find(a => a.id === state.selectedAmazonId);
     if (!am) return [];
-    return getQueenMoves(am.position, this.state.boardSize,
-      buildBlockedSet(this.state.amazons, this.state.burnedCells));
+    const value = getQueenMoves(am.position, state.boardSize,
+      buildBlockedSet(state.amazons, state.burnedCells));
+    this.legalMovesCache = { key, value };
+    return value;
   }
 
   private getLegalShots(): Position[] {
-    if (!this.state?.pendingMoveTo) return [];
-    const temp = this.state.amazons.map(a =>
-      a.id === this.state.selectedAmazonId ? { ...a, position: { ...this.state.pendingMoveTo! } } : a);
-    return getQueenMoves(this.state.pendingMoveTo, this.state.boardSize,
-      buildBlockedSet(temp, this.state.burnedCells));
+    const state = this.state;
+    if (!state?.pendingMoveTo) return [];
+    const key = this.legalCacheKey('shoot', state);
+    if (this.legalShotsCache?.key === key) return this.legalShotsCache.value;
+    const pendingMoveTo = state.pendingMoveTo;
+    const temp = state.amazons.map(a =>
+      a.id === state.selectedAmazonId ? { ...a, position: { ...pendingMoveTo } } : a);
+    const value = getQueenMoves(pendingMoveTo, state.boardSize,
+      buildBlockedSet(temp, state.burnedCells));
+    this.legalShotsCache = { key, value };
+    return value;
+  }
+
+  private legalCacheKey(kind: 'move' | 'shoot', state: GameState): string {
+    const amazons = state.amazons
+      .map(a => `${a.id}:${a.position.row},${a.position.col}`)
+      .join(';');
+    const burned = state.burnedCells.map(pos => `${pos.row},${pos.col}`).join(';');
+    const pending = state.pendingMoveTo ? `${state.pendingMoveTo.row},${state.pendingMoveTo.col}` : '';
+    return [
+      kind,
+      state.boardSize,
+      state.currentPlayer,
+      state.step,
+      state.selectedAmazonId ?? '',
+      pending,
+      amazons,
+      burned,
+    ].join('|');
   }
 
   // ========== Animation tick ==========
@@ -829,13 +927,13 @@ export class GameCanvas {
     for (const [id, c] of this.pieceSprites) {
       const am = this.state?.amazons.find(a => a.id === id);
       if (!am) continue;
-      const phase = (c as any)._pulsePhase || 0;
+      const phase = c.pulsePhase || 0;
       if (am.player === this.state?.currentPlayer) {
         // Halo is child[1] (shadow=0, halo=1, sprite/fallback=2, sel=3)
         const halo = c.children[1] as Graphics | undefined;
         if (halo) halo.alpha = 0.12 + Math.sin(now / 1000 * 2.5 + phase) * 0.08;
       }
-      const sel = (c as any)._selRing as Graphics | undefined;
+      const sel = c.selRing;
       if (sel) sel.alpha = 0.65 + Math.sin(now / 1000 * 3.5) * 0.35;
     }
 
