@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **amazon-games** (651 symbols, 1207 relationships, 55 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **math-games** (651 symbols, 1207 relationships, 55 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -24,10 +24,10 @@ This project is indexed by GitNexus as **amazon-games** (651 symbols, 1207 relat
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/amazon-games/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/amazon-games/clusters` | All functional areas |
-| `gitnexus://repo/amazon-games/processes` | All execution flows |
-| `gitnexus://repo/amazon-games/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/math-games/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/math-games/clusters` | All functional areas |
+| `gitnexus://repo/math-games/processes` | All execution flows |
+| `gitnexus://repo/math-games/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

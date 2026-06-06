@@ -12,7 +12,7 @@ export const ALL_THEMES: Theme[] = [
   natureTheme,
 ];
 
-const THEME_KEY = 'amazon-games.theme';
+const THEME_KEY = 'math-games.theme';
 
 function loadTheme(): Theme {
   if (typeof localStorage === 'undefined') return egyptianTheme;

@@ -29,3 +29,18 @@ dist-ssr
 logs/*.log
 .gitnexus
 screenshots/
+
+# Local Android SDK (not for repo)
+android-sdk/
+
+# Capacitor / Android
+android/.gradle
+android/app/build
+android/build
+android/captures
+android/local.properties
+*.jks
+*.keystore
+
+# Built APK served via web
+public/math-games.apk

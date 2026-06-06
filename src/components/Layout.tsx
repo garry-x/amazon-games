@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../store/ui-store';
 import { useGameStore } from '../store/game-store';
 import { GameSetup } from './GameSetup';
+import { GameDirectory, type GameMeta } from './GameDirectory';
 import { GameHUD } from './GameHUD';
 import { ThemePicker } from './ThemePicker';
 import { PlayerPanel } from './PlayerPanel';
@@ -30,6 +31,7 @@ export function Layout() {
   const previewTheme = useUIStore(s => s.previewTheme);
   const [showHistory, setShowHistory] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<GameMeta | null>(null);
 
   const isPlaying = gameState && gameState.phase !== 'finished';
   // Use preview theme for background when on setup screen
@@ -74,7 +76,7 @@ export function Layout() {
           <div className="flex items-center gap-2 sm:gap-3">
             <h1 className="text-base sm:text-xl font-bold tracking-wider"
               style={{ color: accent, textShadow: `0 0 16px ${accent}44` }}>
-              ⚔ 亚马逊棋
+              {selectedGame ? `${selectedGame.emoji} ${selectedGame.name}` : 'Math Games'}
             </h1>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
@@ -83,7 +85,7 @@ export function Layout() {
             <TopBtn onClick={() => setShowHistory(!showHistory)}>
               {showHistory ? '📋' : '📋'}
             </TopBtn>
-            <TopBtn onClick={() => setShowSetup(true)}>⚙</TopBtn>
+            <TopBtn onClick={() => { setShowSetup(true); setSelectedGame(null); }}>⚙</TopBtn>
           </div>
         </motion.div>
       )}
@@ -91,12 +93,24 @@ export function Layout() {
       {/* Main */}
       <div className="flex-1 flex relative overflow-hidden">
         <AnimatePresence>
-          {showSetup && (
+          {showSetup && !selectedGame && (
             <motion.div
               initial={false}
               exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
               className="absolute inset-0 z-20">
-              <GameSetup onStart={handleStart} />
+              <GameDirectory onSelect={setSelectedGame} />
+            </motion.div>
+          )}
+          {showSetup && selectedGame && (
+            <motion.div
+              initial={false}
+              exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
+              className="absolute inset-0 z-20">
+              <GameSetup
+                onStart={handleStart}
+                onBack={() => setSelectedGame(null)}
+                gameMeta={selectedGame}
+              />
             </motion.div>
           )}
         </AnimatePresence>

@@ -4,11 +4,16 @@ import { useUIStore, ALL_THEMES } from '../store/ui-store';
 import { ALL_VARIANTS, useGameStore } from '../store/game-store';
 import type { AIDifficulty } from '../ai/engine';
 import type { BoardSize, VariantConfig } from '../game/types';
+import type { GameMeta } from './GameDirectory';
+import { useServerStore } from '../store/server-store';
+import { ServerConfig } from './ServerConfig';
 
 const Tutorial = lazy(() => import('./Tutorial').then(module => ({ default: module.Tutorial })));
 
 interface Props {
   onStart: (variant: VariantConfig, boardSize: BoardSize) => void;
+  onBack: () => void;
+  gameMeta: GameMeta;
 }
 
 const BOARD_SIZES: { size: BoardSize; label: string; desc: string }[] = [
@@ -23,7 +28,7 @@ const AI_LEVELS: { value: AIDifficulty; label: string; desc: string }[] = [
   { value: 'hard', label: '高级', desc: '深度' },
 ];
 
-const SETUP_PREFS_KEY = 'amazon-games.setup';
+const SETUP_PREFS_KEY = 'math-games.setup';
 
 function loadSetupPrefs(): { variantId: string; boardSize: BoardSize } {
   if (typeof localStorage === 'undefined') return { variantId: ALL_VARIANTS[0].id, boardSize: 10 };
@@ -47,17 +52,27 @@ function initialSetup(): { variant: VariantConfig; boardSize: BoardSize } {
   return { variant, boardSize };
 }
 
-export function GameSetup({ onStart }: Props) {
+export function GameSetup({ onStart, onBack, gameMeta }: Props) {
   const { previewTheme, setPreviewTheme, setTheme } = useUIStore();
   const aiConfig = useGameStore(s => s.aiConfig);
   const setAIConfig = useGameStore(s => s.setAIConfig);
   const [setup, setSetup] = useState(initialSetup);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const { isConfigured } = useServerStore();
 
   const a = useMemo(() => '#' + previewTheme.background.accent.toString(16).padStart(6, '0'), [previewTheme]);
   const { variant, boardSize: size } = setup;
   const validSizes = BOARD_SIZES.filter(s => variant.recommendedSizes.includes(s.size));
-  const start = () => { setTheme(previewTheme); onStart(variant, size); };
+  const start = () => {
+    setTheme(previewTheme);
+    // If AI is enabled and no server configured, prompt for server IP
+    if (aiConfig.enabled && !isConfigured) {
+      setShowServerConfig(true);
+      return;
+    }
+    onStart(variant, size);
+  };
 
   useEffect(() => {
     if (typeof localStorage === 'undefined') return;
@@ -73,10 +88,16 @@ export function GameSetup({ onStart }: Props) {
       {/* Title */}
       <motion.div
         initial={false}
-        className="text-center mb-4 sm:mb-10 px-2">
+        className="text-center mb-4 sm:mb-10 px-2 relative">
+        {/* Back button */}
+        <button onClick={onBack}
+          className="absolute left-0 top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg text-sm font-medium border transition-all"
+          style={{ borderColor: 'rgba(255,255,255,0.1)', color: a + 'aa', background: 'rgba(255,255,255,0.02)' }}>
+          ← 返回
+        </button>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-2 whitespace-nowrap"
           style={{ color: a, textShadow: `0 0 40px ${a}44, 0 4px 10px rgba(0,0,0,0.6)` }}>
-          ⚔ 亚马逊棋
+          {gameMeta.emoji} {gameMeta.name}
         </h1>
         <p className="text-xs sm:text-sm tracking-[0.2em] uppercase" style={{ color: a + '88' }}>
           Game of the Amazons
@@ -257,6 +278,19 @@ export function GameSetup({ onStart }: Props) {
           <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
         </Suspense>
       )}
+
+      <AnimatePresence>
+        {showServerConfig && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)' }}>
+            <ServerConfig onDone={() => { setShowServerConfig(false); onStart(variant, size); }} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

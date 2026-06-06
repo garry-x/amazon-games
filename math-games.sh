@@ -26,7 +26,7 @@ load_config() {
 # ============================================================
 save_config() {
   cat > "$CONFIG_FILE" <<EOF
-# 亚马逊棋服务配置
+# Math Games 服务配置
 PORT=${PORT:-$DEFAULT_PORT}
 HOST="${HOST:-$DEFAULT_HOST}"
 EOF
@@ -51,7 +51,7 @@ cmd_start() {
     rm -f "$PID_FILE"
   fi
 
-  echo "⚔  亚马逊棋 — 启动中..."
+  echo "🎯 Math Games — 启动中..."
   cd "$ROOT"
 
   if [[ ! -d node_modules ]]; then
@@ -136,7 +136,7 @@ cmd_status() {
   load_config
 
   echo "══════════════════════════════════════"
-  echo "  亚马逊棋 — Game of the Amazons"
+  echo "  Math Games — 数学策略游戏合集"
   echo "══════════════════════════════════════"
 
   if [[ -f "$PID_FILE" ]]; then
@@ -238,13 +238,179 @@ cmd_config() {
 }
 
 # ============================================================
+# ARM64: 为 x86_64 aapt2 设置 qemu 模拟
+# ============================================================
+_setup_aapt2_qemu() {
+  local QEMU_BIN="$HOME/.local/bin/qemu-x86_64-static"
+  local SYSROOT="$HOME/.local/x86-sysroot"
+
+  # Already configured?
+  if [[ -x "$QEMU_BIN" ]] && [[ -d "$SYSROOT/lib64" ]]; then
+    return 0
+  fi
+
+  echo "→ ARM64 环境: 配置 x86_64 模拟层..."
+
+  # Download qemu-user-static if needed
+  if [[ ! -x "$QEMU_BIN" ]]; then
+    mkdir -p "$HOME/.local/bin"
+    local QEMU_DEB="/tmp/qemu-user-static_arm64.deb"
+    if [[ ! -f "$QEMU_DEB" ]]; then
+      apt-get download -o Dir="/tmp" qemu-user-static 2>/dev/null && \
+        mv /tmp/qemu-user-static_*.deb "$QEMU_DEB" 2>/dev/null || true
+    fi
+    if [[ -f "$QEMU_DEB" ]]; then
+      local TMP_QEMU="/tmp/qemu-extract-$$"
+      mkdir -p "$TMP_QEMU" && dpkg-deb -x "$QEMU_DEB" "$TMP_QEMU" 2>/dev/null
+      cp "$TMP_QEMU/usr/bin/qemu-x86_64-static" "$QEMU_BIN" 2>/dev/null
+      rm -rf "$TMP_QEMU"
+      chmod +x "$QEMU_BIN" 2>/dev/null
+    fi
+  fi
+
+  # Set up x86_64 sysroot if needed
+  if [[ ! -d "$SYSROOT/lib64" ]] && [[ -x "$QEMU_BIN" ]]; then
+    mkdir -p "$SYSROOT"
+    local LIBC_DEB="/tmp/libc6_amd64.deb"
+    if [[ ! -f "$LIBC_DEB" ]]; then
+      local LIBC_VER
+      LIBC_VER=$(dpkg -l libc6 2>/dev/null | grep 'libc6:arm64' | awk '{print $3}')
+      [[ -z "$LIBC_VER" ]] && LIBC_VER="2.39-0ubuntu8.7"
+      curl -sL --connect-timeout 30 --max-time 120 -o "$LIBC_DEB" \
+        "http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/libc6_${LIBC_VER}_amd64.deb" 2>/dev/null || true
+    fi
+    if [[ -f "$LIBC_DEB" ]] && file "$LIBC_DEB" | grep -q "Debian binary"; then
+      dpkg-deb -x "$LIBC_DEB" "$SYSROOT" 2>/dev/null
+      mkdir -p "$SYSROOT/lib64" && ln -sf ../usr/lib64/ld-linux-x86-64.so.2 "$SYSROOT/lib64/ld-linux-x86-64.so.2" 2>/dev/null
+      ln -sf usr/lib64 "$SYSROOT/lib" 2>/dev/null
+    fi
+
+    # Also get libgcc_s and libstdc++ for x86_64
+    for pkg in libgcc-s1 libstdc++6; do
+      local DEB="/tmp/${pkg}_amd64.deb"
+      if [[ ! -f "$DEB" ]]; then
+        local PKG_VER
+        PKG_VER=$(dpkg -l "$pkg" 2>/dev/null | grep "$pkg:arm64" | awk '{print $3}')
+        [[ -z "$PKG_VER" ]] && PKG_VER="14.2.0-4ubuntu2~24.04.1"
+        local SRC="gcc-14"
+        [[ "$pkg" == "zlib1g" ]] && SRC="zlib"
+        curl -sL --connect-timeout 30 --max-time 120 -o "$DEB" \
+          "http://archive.ubuntu.com/ubuntu/pool/main/g/${SRC}/${pkg}_${PKG_VER}_amd64.deb" 2>/dev/null || true
+      fi
+      if [[ -f "$DEB" ]] && file "$DEB" | grep -q "Debian binary"; then
+        dpkg-deb -x "$DEB" "$SYSROOT" 2>/dev/null
+      fi
+    done
+  fi
+
+  # Wrap cached aapt2 binaries with qemu
+  if [[ -x "$QEMU_BIN" ]] && [[ -d "$SYSROOT/lib64" ]]; then
+    find "$HOME/.gradle/caches" -path "*/aapt2-*-linux/aapt2" -not -name "aapt2.real" 2>/dev/null | while read -r aapt2; do
+      if file "$aapt2" 2>/dev/null | grep -q "x86-64"; then
+        mv "$aapt2" "${aapt2}.real" 2>/dev/null
+        cat > "$aapt2" << 'QEMUWRAP'
+#!/bin/sh
+export QEMU_LD_PREFIX=HOME_X86_SYSROOT
+exec HOME_QEMU_BIN "$(dirname "$0")/aapt2.real" "$@"
+QEMUWRAP
+        sed -i "s|HOME_X86_SYSROOT|$SYSROOT|g; s|HOME_QEMU_BIN|$QEMU_BIN|g" "$aapt2"
+        chmod +x "$aapt2"
+      fi
+    done
+    echo "  ✓ x86_64 模拟层已就绪"
+  fi
+}
+
+# ============================================================
 # 构建生产版本
 # ============================================================
 cmd_build() {
-  echo "⚔  构建生产版本..."
-  cd "$ROOT"
-  npm run build
-  echo "✓ 构建完成 → dist/"
+  local target="${1:-web}"
+
+  case "$target" in
+    android|apk)
+      echo "📱 构建 Android APK..."
+      cd "$ROOT"
+
+      # Check build requirements
+      if ! command -v java &>/dev/null; then
+        echo "✗ 未检测到 Java (需要 JDK 17+)"
+        echo "  安装: sdk install java 17.0.0-tem"
+        return 1
+      fi
+
+      local java_ver
+      java_ver=$(java -version 2>&1 | head -1 | sed 's/.*version "//;s/".*//' | cut -d. -f1)
+      if [[ -z "$java_ver" ]] || [[ "$java_ver" -lt 17 ]]; then
+        echo "⚠ Java 版本可能过低 (需要 JDK 17+)，当前: $(java -version 2>&1 | head -1)"
+      fi
+
+      # Auto-detect ANDROID_SDK_ROOT if not set
+      if [[ -z "${ANDROID_HOME:-}" ]] && [[ -z "${ANDROID_SDK_ROOT:-}" ]]; then
+        if [[ -d "$ROOT/android-sdk" ]]; then
+          export ANDROID_SDK_ROOT="$ROOT/android-sdk"
+          export ANDROID_HOME="$ANDROID_SDK_ROOT"
+        else
+          echo "⚠ 未设置 ANDROID_HOME / ANDROID_SDK_ROOT"
+          echo "  API 34+ 的 Android SDK 是必需的"
+        fi
+      fi
+      export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+      export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+
+      # ARM64: set up qemu wrapper for x86_64 aapt2 if needed
+      if [[ "$(uname -m)" == "aarch64" ]]; then
+        _setup_aapt2_qemu
+      fi
+
+      echo "→ 构建 Web 资源..."
+      npm run build || return 1
+      echo "→ 同步 Capacitor..."
+      npx cap sync || return 1
+      echo "→ 编译 APK..."
+      cd "$ROOT/android"
+
+      # Ensure correct JDK
+      local jdk_home="${JAVA_HOME:-}"
+      if [[ -z "$jdk_home" ]]; then
+        for jdk in /usr/lib/jvm/java-21-openjdk-arm64 /usr/lib/jvm/java-17-openjdk-arm64 /usr/lib/jvm/openjdk-21; do
+          [[ -d "$jdk" ]] && { jdk_home="$jdk"; break; }
+        done
+      fi
+      [[ -n "$jdk_home" ]] && export JAVA_HOME="$jdk_home" && export PATH="$JAVA_HOME/bin:$PATH"
+
+      ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" ANDROID_HOME="$ANDROID_HOME" JAVA_HOME="$JAVA_HOME" \
+        ./gradlew assembleDebug || {
+        echo "✗ APK 构建失败，请检查 Android SDK 配置"
+        return 1
+      }
+      cd "$ROOT"
+      local apk="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
+      if [[ -f "$apk" ]]; then
+        cp "$apk" "$ROOT/public/math-games.apk"
+        echo "✓ APK 构建完成"
+        echo "  输出: android/app/build/outputs/apk/debug/app-debug.apk"
+        echo "  网站: /math-games.apk (已复制到 public/，可通过网页下载)"
+        ls -lh "$apk" | awk '{print "  大小: " $5}'
+      else
+        echo "✗ APK 未生成，请检查 Gradle 输出"
+        return 1
+      fi
+      ;;
+    web|"")
+      echo "🎯 构建生产版本..."
+      cd "$ROOT"
+      npm run build
+      echo "✓ 构建完成 → dist/"
+      ;;
+    *)
+      echo "用法: $0 build [web|android]"
+      echo ""
+      echo "  web        构建 Web 生产版本 (默认)"
+      echo "  android    构建 Android APK"
+      return 1
+      ;;
+  esac
 }
 
 # ============================================================
@@ -260,7 +426,7 @@ cmd_generate() {
     return 1
   fi
 
-  echo "⚔  亚马逊棋 — AI 纹理生成"
+  echo "🎯 Math Games — AI 纹理生成"
   echo "  主题: $theme  类型: $type"
   echo ""
 
@@ -315,7 +481,7 @@ cmd_logs() {
 # 帮助
 # ============================================================
 cmd_help() {
-  echo "⚔  亚马逊棋 — Game of the Amazons"
+  echo "🎯 Math Games — Game of the Amazons"
   echo ""
   echo "用法: $0 <命令> [参数]"
   echo ""
@@ -324,7 +490,8 @@ cmd_help() {
   echo "  stop                停止服务"
   echo "  restart             重启服务"
   echo "  status              查看服务状态"
-  echo "  build               构建生产版本到 dist/"
+  echo "  build [web|android]  构建 (web → dist/, android → APK)"
+  echo "  android              构建 Android APK (快捷方式)"
   echo "  preview             预览生产版本"
   echo "  logs [行数]          查看最近日志"
   echo "  evaluate [--quick]    质量评估 (交互/功能/代码/性能)"
@@ -354,7 +521,8 @@ case "${1:-help}" in
   stop)     cmd_stop ;;
   restart)  cmd_restart ;;
   status)   cmd_status ;;
-  build)    cmd_build ;;
+  build)    shift; cmd_build "$@" ;;
+  android)   cmd_build android ;;
   preview)  cmd_preview ;;
   logs)     shift; cmd_logs "$@" ;;
   generate) shift; cmd_generate "$@" ;;

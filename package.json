@@ -1,5 +1,5 @@
 {
-  "name": "amazon-games",
+  "name": "math-games",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,9 +9,14 @@
     "lint": "eslint .",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open": "npx cap open android",
+    "cap:build": "npm run build && npx cap sync && cd android && ./gradlew assembleDebug && echo '✓ APK → android/app/build/outputs/apk/debug/app-debug.apk'"
   },
   "dependencies": {
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/preferences": "^8.0.1",
     "@tailwindcss/vite": "^4.3.0",
     "framer-motion": "^12.40.0",
     "pixi.js": "^8.18.1",
@@ -22,6 +27,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^8.4.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",

@@ -157,7 +157,7 @@ async function queuePrompt(workflow) {
   const res = await fetch(`${API}/prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: workflow, client_id: 'amazon-games-build' }),
+    body: JSON.stringify({ prompt: workflow, client_id: 'math-games-build' }),
   });
   if (!res.ok) throw new Error(`Prompt failed: ${res.status} ${await res.text()}`);
   const data = await res.json();

@@ -23,7 +23,7 @@ export interface AIConfig {
   difficulty: AIDifficulty;
 }
 
-const AI_CONFIG_KEY = 'amazon-games.ai-config';
+const AI_CONFIG_KEY = 'math-games.ai-config';
 const DEFAULT_AI_CONFIG: AIConfig = { enabled: false, aiPlayer: 'black', difficulty: 'medium' };
 let aiAbortController: AbortController | null = null;
 let aiRunId = 0;

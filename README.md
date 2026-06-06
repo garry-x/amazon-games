@@ -1,8 +1,10 @@
-# ⚔ 亚马逊棋 — Game of the Amazons
+# 🎯 Math Games — 数学策略游戏合集
 
-> 支持 AI 对战、多种变体与主题的浏览器双人策略棋类
+> 浏览器数学策略游戏合集，支持 AI 对战、多种变体与主题
 
-亚马逊棋（Game of the Amazons）由 Walter Zamkauskas 于 1988 年发明。双方各控制亚马逊战士（皇后走法），每回合移动一枚棋子并射出一支箭封锁格子，最后能移动的一方获胜。
+## ⚔ 亚马逊棋 — Game of the Amazons
+
+亚马逊棋（Game of the Amazons）由 Walter Zamkauskas 于 1988 年发明。双方各控制亚马逊战士（皇后走法），每回合移动一枚棋子并射出一支箭封锁格子，最后能移动的一方获胜。这是 Math Games 的首款游戏。
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react" alt="React">
@@ -38,6 +40,7 @@
 
 ### 平台
 - **桌面 + 平板 + 手机** — PixiJS 内置事件系统统一触控
+- **Android APK** — Capacitor 原生封装，支持鸿蒙 OS 4.2.0+
 - **PWA 支持** — 可添加到主屏幕，全屏独立运行
 - **iPad 安全区适配** — 顶栏避开刘海/状态栏
 - **首屏拆包** — PixiJS 棋盘、教程、历史面板、结果弹窗按需加载
@@ -47,29 +50,50 @@
 ## 快速开始
 
 ```bash
-git clone git@github.com:garry-x/amazon-games.git
-cd amazon-games
+git clone git@github.com:garry-x/math-games.git
+cd math-games
 npm install
-./amazon-games.sh start
+./math-games.sh start
 ```
 
 浏览器打开 `http://localhost:5173`。
 
+### Android APK 构建
+
+构建 Android APK，支持鸿蒙 OS 4.2.0+：
+
+```bash
+# 需要 Android SDK (API 34+) + JDK 17
+npm run cap:build
+```
+
+APK 输出在 `android/app/build/outputs/apk/debug/app-debug.apk`。
+
+**使用方式：** 安装 APK 后打开 App，在局域网内启动桌面服务器 `./math-games.sh start`，App 中的 AI 对战将通过局域网连接到桌面大模型服务。本地双人模式无需服务器。
+
+分步构建：
+
+```bash
+npm run build          # 构建 Web 资源
+npx cap sync           # 同步到 Android 项目
+npx cap open android   # 在 Android Studio 中打开（调试/签名）
+```
+
 ## CLI 工具
 
 ```bash
-./amazon-games.sh start              # 启动开发服务器
-./amazon-games.sh stop               # 停止服务（优雅退出）
-./amazon-games.sh restart            # 重启服务
-./amazon-games.sh status             # 查看状态
-./amazon-games.sh logs [行数]        # 查看日志
+./math-games.sh start              # 启动开发服务器
+./math-games.sh stop               # 停止服务（优雅退出）
+./math-games.sh restart            # 重启服务
+./math-games.sh status             # 查看状态
+./math-games.sh logs [行数]        # 查看日志
 
-./amazon-games.sh config set port 8080   # 修改端口
-./amazon-games.sh config set host 127.0.0.1  # 仅本地访问
+./math-games.sh config set port 8080   # 修改端口
+./math-games.sh config set host 127.0.0.1  # 仅本地访问
 
-./amazon-games.sh build              # 生产构建 → dist/
-./amazon-games.sh preview            # 预览生产版本
-./amazon-games.sh evaluate [--quick] # 质量评估
+./math-games.sh build              # 生产构建 → dist/
+./math-games.sh preview            # 预览生产版本
+./math-games.sh evaluate [--quick] # 质量评估
 ```
 
 常用质量检查：
@@ -86,8 +110,8 @@ npm run smoke -- --url http://127.0.0.1:5174/  # Chromium 首屏冒烟截图
 ### 纹理生成（需要 ComfyUI）
 
 ```bash
-./amazon-games.sh generate all all      # 全部纹理
-./amazon-games.sh generate egyptian bg  # 指定主题/类型
+./math-games.sh generate all all      # 全部纹理
+./math-games.sh generate egyptian bg  # 指定主题/类型
 ```
 
 类型: `bg` `board` `tile-light` `tile-dark` `piece-white` `piece-black` `burn`
@@ -136,6 +160,7 @@ AI 请求带超时和取消控制：重开、认输、开始新局时会取消�
 |---|---|
 | 框架 | React 19 + TypeScript |
 | 构建 | Vite 8 |
+| 移动端 | Capacitor 8 (Android) |
 | 渲染 | PixiJS 8 WebGL |
 | 状态 | Zustand |
 | 动画 | Framer Motion + PixiJS Ticker |

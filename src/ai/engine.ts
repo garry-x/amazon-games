@@ -1,10 +1,23 @@
 import type { GameState, Player } from '../game/types';
 import { getQueenMoves, buildBlockedSet } from '../game/rules';
+import { useServerStore } from '../store/server-store';
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
-const API_URL = import.meta.env.VITE_AI_API_URL ?? 'http://127.0.0.1:8000/v1/chat/completions';
-const MODEL = import.meta.env.VITE_AI_MODEL ?? 'Qwen/Qwen3.6-35B-A3B-FP8';
+// Default URLs — overridden at runtime by server-store config
+const DEFAULT_API_URL = import.meta.env.VITE_AI_API_URL ?? 'http://127.0.0.1:8000/v1/chat/completions';
+const DEFAULT_MODEL = import.meta.env.VITE_AI_MODEL ?? 'Qwen/Qwen3.6-35B-A3B-FP8';
+
+/** Get the currently configured API URL (runtime config takes priority over build-time env) */
+function getApiUrl(): string {
+  try {
+    const url = useServerStore.getState().serverUrl;
+    if (url) return url;
+  } catch {
+    // Fallback if store not initialized
+  }
+  return DEFAULT_API_URL;
+}
 
 /** Build a text representation of the board */
 function boardToString(state: GameState): string {
@@ -119,11 +132,11 @@ async function requestMove(
   const system = buildSystemPrompt(difficulty, player, boardSize);
   const userMsg = `Current board state (${player} to move):\n\n${boardStr}\n\nChoose the best move for ${player}. Reply with the MOVE: format only.`;
 
-  const res = await fetch(API_URL, {
+  const res = await fetch(getApiUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: MODEL,
+      model: DEFAULT_MODEL,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: userMsg },

@@ -1,7 +1,7 @@
 {
-  "name": "亚马逊棋 — Game of the Amazons",
-  "short_name": "亚马逊棋",
-  "description": "华丽的浏览器双人亚马逊棋对弈游戏",
+  "name": "Math Games — 数学策略游戏合集",
+  "short_name": "Math Games",
+  "description": "数学策略游戏合集，包含亚马逊棋等经典游戏",
   "start_url": "/",
   "display": "standalone",
   "orientation": "landscape",
