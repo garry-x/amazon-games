@@ -478,6 +478,129 @@ cmd_logs() {
 }
 
 # ============================================================
+# 检测 AI Provider 连接
+# ============================================================
+cmd_check() {
+  local ENV_FILE="$ROOT/.env.local"
+  local CHECK_TIMEOUT="${1:-30}"
+
+  echo "══════════════════════════════════════"
+  echo "  🤖 AI Provider 连接检测"
+  echo "══════════════════════════════════════"
+  echo ""
+
+  # 加载 .env.local
+  if [[ ! -f "$ENV_FILE" ]]; then
+    echo "✗ 未找到 .env.local 配置文件"
+    echo "  请创建 $ENV_FILE 并配置 Provider 信息"
+    echo "  参考 .env.example 中的模板"
+    return 1
+  fi
+
+  # 读取配置
+  local base_url model api_key name
+  while IFS='=' read -r key value; do
+    case "$key" in
+      VITE_AI_PROVIDER_NAME) name="${value//\"/}" ;;
+      VITE_AI_BASE_URL)     base_url="${value//\"/}" ;;
+      VITE_AI_API_KEY)      api_key="${value//\"/}" ;;
+      VITE_AI_MODEL)        model="${value//\"/}" ;;
+    esac
+  done < "$ENV_FILE"
+
+  # 验证配置项
+  local missing=()
+  [[ -z "$base_url" ]] && missing+=("VITE_AI_BASE_URL")
+  [[ -z "$api_key" ]] && missing+=("VITE_AI_API_KEY")
+  [[ -z "$model" ]] && missing+=("VITE_AI_MODEL")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "✗ 配置不完整，缺少:"
+    for m in "${missing[@]}"; do
+      echo "  - $m"
+    done
+    return 1
+  fi
+
+  echo "  Provider:  ${name:-未命名}"
+  echo "  Base URL:  $base_url"
+  echo "  Model:     $model"
+  echo "  API Key:   ${api_key:0:8}...${api_key: -4}"
+  echo ""
+
+  # 构建 API 端点
+  local endpoint="${base_url%/}/chat/completions"
+
+  # 发送测试请求
+  echo "→ 正在连接 $endpoint ..."
+
+  local response http_code time_total
+  response=$(curl -s -w "\n%{http_code}\n%{time_total}" \
+    --connect-timeout 10 --max-time "$CHECK_TIMEOUT" \
+    -X POST "$endpoint" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $api_key" \
+    -d "{
+      \"model\": \"$model\",
+      \"messages\": [
+        {\"role\": \"user\", \"content\": \"Hello! Reply with just: OK\"}
+      ],
+      \"max_tokens\": 10,
+      \"temperature\": 0,
+      \"thinking\": {\"type\": \"disabled\"}
+    }" 2>&1)
+
+  http_code=$(echo "$response" | tail -2 | head -1)
+  time_total=$(echo "$response" | tail -1)
+  local body=$(echo "$response" | head -n -2)
+
+  echo ""
+
+  case "$http_code" in
+    200)
+      # 提取回复内容
+      local content
+      content=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['choices'][0]['message']['content'].strip())" 2>/dev/null || echo "(解析失败)")
+      echo "  ✅ HTTP $http_code — 连接成功 (${time_total}s)"
+      echo "  模型回复: \"$content\""
+
+      # 检查 reasoning_tokens
+      local reasoning
+      reasoning=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('usage',{}).get('completion_tokens_details',{}).get('reasoning_tokens',0))" 2>/dev/null || echo "0")
+      if [[ "$reasoning" != "0" ]]; then
+        echo "  ⚠ reasoning_tokens=$reasoning — thinking 未禁用，游戏响应会很慢"
+        echo "    请确认 engine.ts 中已设置 thinking: { type: 'disabled' }"
+      fi
+
+      echo ""
+      echo "  ✓ AI Provider 就绪，可以开始游戏！"
+      return 0
+      ;;
+    401|403)
+      echo "  ❌ HTTP $http_code — 认证失败"
+      echo "    请检查 VITE_AI_API_KEY 是否正确"
+      return 1
+      ;;
+    404)
+      echo "  ❌ HTTP $http_code — 端点不存在"
+      echo "    请检查 VITE_AI_BASE_URL 是否正确 (当前: $base_url)"
+      return 1
+      ;;
+    000)
+      echo "  ❌ 连接超时或无法访问"
+      echo "    请检查网络连接和 Base URL"
+      echo "    端点: $endpoint"
+      return 1
+      ;;
+    *)
+      echo "  ❌ HTTP $http_code"
+      echo "  响应: $(echo "$body" | head -c 200)"
+      return 1
+      ;;
+  esac
+}
+
+# ============================================================
 # 帮助
 # ============================================================
 cmd_help() {
@@ -490,6 +613,7 @@ cmd_help() {
   echo "  stop                停止服务"
   echo "  restart             重启服务"
   echo "  status              查看服务状态"
+  echo "  check               检测 AI Provider 连接状态"
   echo "  build [web|android]  构建 (web → dist/, android → APK)"
   echo "  android              构建 Android APK (快捷方式)"
   echo "  preview             预览生产版本"
@@ -507,6 +631,7 @@ cmd_help() {
   echo ""
   echo "示例:"
   echo "  $0 start"
+  echo "  $0 check"
   echo "  $0 config set port 8080"
   echo "  $0 restart"
 }
@@ -521,6 +646,7 @@ case "${1:-help}" in
   stop)     cmd_stop ;;
   restart)  cmd_restart ;;
   status)   cmd_status ;;
+  check)    shift; cmd_check "$@" ;;
   build)    shift; cmd_build "$@" ;;
   android)   cmd_build android ;;
   preview)  cmd_preview ;;

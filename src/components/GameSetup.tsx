@@ -59,7 +59,10 @@ export function GameSetup({ onStart, onBack, gameMeta }: Props) {
   const [setup, setSetup] = useState(initialSetup);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
-  const { isConfigured } = useServerStore();
+  const { isConfigured, provider } = useServerStore();
+  const aiDescription = provider
+    ? `${provider.name} · ${provider.model} 智能对手`
+    : '远程 AI 大模型智能对手';
 
   const a = useMemo(() => '#' + previewTheme.background.accent.toString(16).padStart(6, '0'), [previewTheme]);
   const { variant, boardSize: size } = setup;
@@ -199,7 +202,7 @@ export function GameSetup({ onStart, onBack, gameMeta }: Props) {
               <div className="text-sm font-bold" style={{ color: aiConfig.enabled ? a : 'rgba(255,255,255,0.55)' }}>
                 🤖 AI 对战
               </div>
-              <div className="text-xs text-white/30 mt-0.5">本地大模型 Qwen 35B 智能对手</div>
+              <div className="text-xs text-white/30 mt-0.5">{aiDescription}</div>
             </div>
           </label>
 

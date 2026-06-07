@@ -4,19 +4,21 @@ import { useServerStore } from '../store/server-store';
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
-// Default URLs — overridden at runtime by server-store config
-const DEFAULT_API_URL = import.meta.env.VITE_AI_API_URL ?? 'http://127.0.0.1:8000/v1/chat/completions';
-const DEFAULT_MODEL = import.meta.env.VITE_AI_MODEL ?? 'Qwen/Qwen3.6-35B-A3B-FP8';
-
-/** Get the currently configured API URL (runtime config takes priority over build-time env) */
-function getApiUrl(): string {
+/** Get the currently configured provider endpoint, API key, and model */
+function getProvider(): { url: string; apiKey: string; model: string } | null {
   try {
-    const url = useServerStore.getState().serverUrl;
-    if (url) return url;
+    const state = useServerStore.getState();
+    if (state.chatEndpoint && state.provider) {
+      return {
+        url: state.chatEndpoint,
+        apiKey: state.provider.apiKey,
+        model: state.provider.model,
+      };
+    }
   } catch {
     // Fallback if store not initialized
   }
-  return DEFAULT_API_URL;
+  return null;
 }
 
 /** Build a text representation of the board */
@@ -121,7 +123,7 @@ function difficultyTemp(d: AIDifficulty): number {
   return d === 'easy' ? 0.3 : d === 'medium' ? 0.5 : 0.7;
 }
 
-/** Request a move from the vLLM model */
+/** Request a move from the AI provider */
 async function requestMove(
   boardStr: string,
   difficulty: AIDifficulty,
@@ -129,14 +131,22 @@ async function requestMove(
   boardSize: number,
   signal?: AbortSignal,
 ): Promise<string> {
+  const provider = getProvider();
+  if (!provider) throw new Error('No AI provider configured');
+
   const system = buildSystemPrompt(difficulty, player, boardSize);
   const userMsg = `Current board state (${player} to move):\n\n${boardStr}\n\nChoose the best move for ${player}. Reply with the MOVE: format only.`;
 
-  const res = await fetch(getApiUrl(), {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (provider.apiKey) {
+    headers['Authorization'] = `Bearer ${provider.apiKey}`;
+  }
+
+  const res = await fetch(provider.url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
-      model: DEFAULT_MODEL,
+      model: provider.model,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: userMsg },
@@ -144,11 +154,13 @@ async function requestMove(
       max_tokens: difficulty === 'hard' ? 800 : difficulty === 'medium' ? 500 : 200,
       temperature: difficultyTemp(difficulty),
       stop: ['</s>', '\n\n\n'],
+      // Disable deep reasoning for fast game moves
+      thinking: { type: 'disabled' },
     }),
     signal,
   });
 
-  if (!res.ok) throw new Error(`vLLM API error: ${res.status}`);
+  if (!res.ok) throw new Error(`AI API error: ${res.status}`);
   const data = await res.json();
   return data.choices?.[0]?.message?.content || '';
 }

@@ -1,78 +1,90 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useUIStore } from '../store/ui-store';
-import { useServerStore } from '../store/server-store';
+import { useServerStore, type ProviderConfig } from '../store/server-store';
 
 interface Props {
   onDone: () => void;
 }
 
-/** Parse and normalize a server address input into a full vLLM API URL */
-function normalizeUrl(input: string): string {
-  let trimmed = input.trim();
-  if (!trimmed) return '';
-
-  // Add http:// if no protocol
-  if (!/^https?:\/\//i.test(trimmed)) {
-    trimmed = 'http://' + trimmed;
-  }
-
-  // If path already includes chat/completions, use as-is
-  if (trimmed.includes('/chat/completions')) {
-    return trimmed;
-  }
-
-  // Remove trailing slash
-  trimmed = trimmed.replace(/\/+$/, '');
-
-  // Check if it looks like an OpenAI-compatible endpoint (has /v1)
-  if (trimmed.includes('/v1')) {
-    return trimmed + '/chat/completions';
-  }
-
-  // Default: append vLLM API path
-  return trimmed + '/v1/chat/completions';
+/** Build a default provider from env vars (if available) */
+function envDefault(): ProviderConfig | null {
+  const baseUrl = import.meta.env.VITE_AI_BASE_URL as string | undefined;
+  const model = import.meta.env.VITE_AI_MODEL as string | undefined;
+  if (!baseUrl || !model) return null;
+  return {
+    name: (import.meta.env.VITE_AI_PROVIDER_NAME as string) ?? 'Custom Provider',
+    baseUrl,
+    apiKey: (import.meta.env.VITE_AI_API_KEY as string) ?? '',
+    model,
+  };
 }
 
 export function ServerConfig({ onDone }: Props) {
   const previewTheme = useUIStore(s => s.previewTheme);
-  const { serverUrl, setServerUrl } = useServerStore();
+  const { provider, setProvider, isConfigured } = useServerStore();
   const accent = useMemo(() => '#' + previewTheme.background.accent.toString(16).padStart(6, '0'), [previewTheme]);
 
-  // Extract a user-friendly display from the stored URL
-  const initialDisplay = useMemo(() => {
-    try {
-      const u = new URL(serverUrl);
-      return u.host; // e.g. "192.168.1.100:8000"
-    } catch {
-      return serverUrl;
-    }
-  }, [serverUrl]);
+  const defaults = useMemo(() => envDefault(), []);
+  const current = provider ?? defaults;
 
-  const [input, setInput] = useState(initialDisplay);
+  const [name, setName] = useState(current?.name ?? '');
+  const [baseUrl, setBaseUrl] = useState(current?.baseUrl ?? '');
+  const [apiKey, setApiKey] = useState(current?.apiKey ?? '');
+  const [model, setModel] = useState(current?.model ?? '');
   const [error, setError] = useState('');
 
   const handleSave = () => {
-    const url = normalizeUrl(input);
-    if (!url) {
-      setError('请输入有效的服务器地址');
+    if (!baseUrl.trim()) {
+      setError('请输入 Base URL');
+      return;
+    }
+    if (!model.trim()) {
+      setError('请输入 Model');
       return;
     }
     try {
-      new URL(url);
+      // Validate base URL is well-formed
+      new URL(baseUrl.trim());
     } catch {
-      setError('地址格式无效，请输入 IP:端口');
+      setError('Base URL 格式无效');
       return;
     }
-    setServerUrl(url);
+    setProvider({
+      name: name.trim() || 'Custom Provider',
+      baseUrl: baseUrl.trim(),
+      apiKey: apiKey.trim(),
+      model: model.trim(),
+    });
     onDone();
   };
 
   const handleSkip = () => {
+    // Use env default if available, otherwise skip
+    if (defaults) {
+      setProvider(defaults);
+    }
     onDone();
   };
 
+  const handleReset = () => {
+    setProvider(null);
+    if (defaults) {
+      setName(defaults.name);
+      setBaseUrl(defaults.baseUrl);
+      setApiKey(defaults.apiKey);
+      setModel(defaults.model);
+    } else {
+      setName('');
+      setBaseUrl('');
+      setApiKey('');
+      setModel('');
+    }
+    setError('');
+  };
+
   const section = "rounded-2xl border p-3 sm:p-5";
+  const inputClass = "w-full px-4 py-3 rounded-xl text-sm font-mono border focus:outline-none transition-colors";
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center px-3 sm:px-6 py-5 sm:py-8 select-none overflow-y-auto">
@@ -85,39 +97,103 @@ export function ServerConfig({ onDone }: Props) {
 
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight"
           style={{ color: accent, textShadow: `0 0 40px ${accent}44` }}>
-          AI 服务器设置
+          AI Provider 设置
         </h1>
         <p className="text-xs sm:text-sm text-white/50 leading-relaxed">
-          AI 对战需要连接到运行 vLLM 大模型的服务器。<br />
-          请输入同一局域网内的服务器地址。
+          配置远程 AI 大模型服务。<br />
+          支持任何 OpenAI 兼容 API。
         </p>
 
-        {/* Input */}
+        {/* Provider fields */}
         <div className={section} style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-          <label className="text-xs font-bold uppercase tracking-[0.1em] mb-3 block text-white/40">
-            服务器地址
-          </label>
-          <input
-            type="text"
-            value={input}
-            onChange={e => { setInput(e.target.value); setError(''); }}
-            onKeyDown={e => e.key === 'Enter' && handleSave()}
-            placeholder="192.168.1.100:8000"
-            autoFocus
-            className="w-full px-4 py-3 rounded-xl text-sm font-mono text-center
-              border focus:outline-none transition-colors"
-            style={{
-              color: accent,
-              borderColor: error ? 'rgba(255,100,100,0.5)' : accent + '33',
-              background: 'rgba(0,0,0,0.3)',
-            }}
-          />
+          <div className="space-y-4">
+            {/* Name */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-[0.1em] mb-1.5 block text-white/40 text-left">
+                Provider 名称
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => { setName(e.target.value); setError(''); }}
+                placeholder="Volcengine Coding Plan"
+                className={inputClass}
+                style={{
+                  color: accent,
+                  borderColor: accent + '33',
+                  background: 'rgba(0,0,0,0.3)',
+                }}
+              />
+            </div>
+
+            {/* Base URL */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-[0.1em] mb-1.5 block text-white/40 text-left">
+                Base URL
+              </label>
+              <input
+                type="text"
+                value={baseUrl}
+                onChange={e => { setBaseUrl(e.target.value); setError(''); }}
+                placeholder="https://api.example.com/v1"
+                className={inputClass}
+                style={{
+                  color: accent,
+                  borderColor: error ? 'rgba(255,100,100,0.5)' : accent + '33',
+                  background: 'rgba(0,0,0,0.3)',
+                }}
+              />
+            </div>
+
+            {/* API Key */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-[0.1em] mb-1.5 block text-white/40 text-left">
+                API Key
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={e => { setApiKey(e.target.value); setError(''); }}
+                placeholder="sk-..."
+                className={inputClass}
+                style={{
+                  color: accent,
+                  borderColor: accent + '33',
+                  background: 'rgba(0,0,0,0.3)',
+                }}
+              />
+            </div>
+
+            {/* Model */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-[0.1em] mb-1.5 block text-white/40 text-left">
+                Model
+              </label>
+              <input
+                type="text"
+                value={model}
+                onChange={e => { setModel(e.target.value); setError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleSave()}
+                placeholder="deepseek-v4-pro"
+                autoFocus
+                className={inputClass}
+                style={{
+                  color: accent,
+                  borderColor: error ? 'rgba(255,100,100,0.5)' : accent + '33',
+                  background: 'rgba(0,0,0,0.3)',
+                }}
+              />
+            </div>
+          </div>
+
           {error && (
-            <p className="text-xs mt-2" style={{ color: 'rgba(255,100,100,0.8)' }}>{error}</p>
+            <p className="text-xs mt-3" style={{ color: 'rgba(255,100,100,0.8)' }}>{error}</p>
           )}
-          <p className="text-[11px] text-white/25 mt-2 leading-relaxed">
-            格式: IP:端口，例如 192.168.1.100:8000
-          </p>
+          {defaults && (
+            <p className="text-[11px] text-white/25 mt-3 leading-relaxed">
+              已从本地配置加载默认 Provider: {defaults.name}
+            </p>
+          )}
         </div>
 
         {/* Buttons */}
@@ -127,8 +203,17 @@ export function ServerConfig({ onDone }: Props) {
             whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
             className="flex-1 py-3.5 rounded-xl text-sm font-bold border transition-colors"
             style={{ color: '#ffffff88', borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
-            跳过 (本地双人)
+            {isConfigured ? '保持当前' : defaults ? '使用默认' : '跳过 (本地双人)'}
           </motion.button>
+          {isConfigured && (
+            <motion.button
+              onClick={handleReset}
+              whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+              className="px-4 py-3.5 rounded-xl text-sm border transition-colors"
+              style={{ color: 'rgba(255,100,100,0.7)', borderColor: 'rgba(255,100,100,0.2)', background: 'rgba(255,100,100,0.05)' }}>
+              重置
+            </motion.button>
+          )}
           <motion.button
             onClick={handleSave}
             whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
